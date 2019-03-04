@@ -1,0 +1,8 @@
+-lib hxnodejs
+-lib tink_core
+-lib crypto
+
+-cp src
+-main TestRecordsPage
+
+-js test.js
