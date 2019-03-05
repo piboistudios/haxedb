@@ -17,11 +17,20 @@ class RecordsPage<T> extends Page {
 
 	public function addRecord(record:Record<T>) {
 		var records = this.records();
-
 		record.location.pageNo = this.header.id;
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 		records.push(record);
 		return this.writeFromRecords(records);
+	}
+
+	public function getRecord(predicate:Record<T>->Bool) {
+		var records = this.records();
+		return records.find(predicate);
+	}
+
+	public function getRecords(predicate:Record<T>->Bool) {
+		var records = this.records();
+		return records.filter(predicate);
 	}
 
 	public function removeRecord(recordNo:Int) {

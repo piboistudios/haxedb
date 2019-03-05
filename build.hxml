@@ -3,6 +3,6 @@
 -lib crypto
 
 -cp src
--main TestRecordsPage
+-main TestCollection
 
 -js test.js

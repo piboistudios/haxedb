@@ -1,31 +1,52 @@
 package haxedb.storage;
 
+import haxedb.record.books.BookRecord;
+import haxedb.record.Record;
 import sys.FileSystem;
 import haxe.io.BytesInput;
 import haxe.io.Bytes;
 import sys.io.File;
 import sys.io.FileSeek;
+import haxedb.sys.System;
 
 class Book {
-	var index:Index;
-	var pages:Array<Int>;
-	var blobFile:String;
-
-	public var pageSize:Int = 8000;
-
-	var dbFile(get, never):String;
+	public var index(default, null):BookRecord;
+	public var id(get, null):Int;
+	public var pageSize(get, null):Int;
+	public var dbFile(get, never):String;
 
 	function get_dbFile() {
-		return './${this.blobFile}.db';
+		return './${this.index.blobFile}.db';
+	}
+
+	public function get_id() {
+		return this.index.id;
+	}
+
+	function get_pageSize() {
+		return this.index.pageSize;
 	}
 
 	public function nextFreePage() {
-		return this.index.pages + 1;
+		return Std.int(Math.max(this.index.pages + 1, 1));
 	}
 
-	public function new(file = 'test') {
-		this.blobFile = file;
-		this.init();
+	public function new() {
+		this.index = new BookRecord();
+	}
+
+	public static function fromIndex(index:BookRecord) {
+		var book = new Book();
+		book.index = index;
+		book.init();
+		return book;
+	}
+
+	public static function open(file = 'test') {
+		var book = new Book();
+		book.index.blobFile = file;
+		book.init();
+		return book;
 	}
 
 	function init() {
@@ -34,20 +55,23 @@ class Book {
 			writeIndexPage();
 		} else {
 			var indexData = indexPage.string();
-			trace(indexPage);
-			trace('indexData: $indexData');
 			this.index = haxe.Unserializer.run(indexData);
-			trace(this.index);
 		}
 	}
 
 	function writeIndexPage() {
-		var newIndex:Index = new Index();
 		var indexPage = new Page(0, this);
 		var serializer = new haxe.Serializer();
-		serializer.serialize(newIndex);
+		serializer.serialize(index);
+
+		if (System.library != null) {
+			this.index.id = System.library.count();
+			if (System.library.getById(this.index.id) == null) {
+				System.library.addRecord(new Record<BookRecord>(this.index));
+				System.library.persistRecords();
+			}
+		}
 		indexPage.writeFromString(serializer.toString());
-		this.index = newIndex;
 		this.persistPage(indexPage);
 	}
 
@@ -84,7 +108,6 @@ class Book {
 			newBytes.blit(0, bytes, 0, bytes.length);
 			bytes = newBytes;
 		}
-		trace('${pageStart}, ${pid}, ${pageSize}:  ${pageBytes.length}/${bytes.length}');
 		var pageSize = pageBytes.length;
 		bytes.blit(pageStart, pageBytes, 0, pageSize);
 		var output = File.write(this.dbFile, true);
@@ -113,17 +136,11 @@ class Book {
 				page.writeFromBytes(content);
 			} catch (eof:haxe.io.Eof) {
 				return null;
+			} catch (error:Dynamic) {
+				throw error;
 			}
 			return page;
 		} else
 			return null;
-	}
-}
-
-class Index {
-	public var pages:Int = -1;
-	public var id:Int = 0;
-	public function new() {
-
 	}
 }
