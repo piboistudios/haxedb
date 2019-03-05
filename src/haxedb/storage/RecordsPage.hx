@@ -8,6 +8,7 @@ import haxedb.record.Record;
 class RecordsPage<T> extends Page {
 	public function new(id = -1, book:Book = null) {
 		super(id, book);
+		trace('Creating records page:\npassed id $id\nassigned id: ${this.id()}');
 	}
 
 	public function records():Array<Record<T>> {
@@ -21,6 +22,28 @@ class RecordsPage<T> extends Page {
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 		records.push(record);
 		return this.writeFromRecords(records);
+	}
+
+	public function updateRecord(predicate:Record<T>->Bool, value:T) {
+		var records = this.records();
+		var recordToReplace = records.find(predicate);
+		if (recordToReplace != null) {
+			recordToReplace.data = value;
+			return this.writeFromRecords(records);
+		} else
+			return false;
+	}
+
+	public function updateRecords(predicate:Record<T>->Bool, value:T) {
+		var records = this.records();
+		var recordsToReplace = records.filter(predicate);
+		if (recordsToReplace != null && recordsToReplace.length != 0) {
+			recordsToReplace.iter(record -> {
+				record.data = value;
+			});
+			return this.writeFromRecords(records);
+		} else
+			return false;
 	}
 
 	public function getRecord(predicate:Record<T>->Bool) {
@@ -43,6 +66,7 @@ class RecordsPage<T> extends Page {
 	}
 
 	function writeFromRecords(records:Array<Record<T>>) {
+		this.book.persistPage(this);
 		return this.writeFromString(haxe.Serializer.run(records));
 	}
 

@@ -14,9 +14,9 @@ typedef DObj = {
 class TestCollection {
 	public static function main() {
 		init();
-		// for (i in 0...10) {
-		// 	insertRecord();
-		// }
+		for (i in 0...10) {
+			insertRecord();
+		}
 		readAll();
 		close();
 	}
@@ -25,12 +25,13 @@ class TestCollection {
 	static var collection:Collection<DObj>;
 
 	static function close() {
+		trace(System.collectionManager.getRecords(record -> true));
 		System.teardown();
 	}
 
 	static function init() {
 		System.init();
-		trace(haxe.Json.stringify(System.collectionManager));
+		trace(System.collectionManager);
 		book = Book.open('test-collection');
 		var loadedCollection = System.collectionManager.getRecord(record -> record.data.bookId == 1);
 		collection = loadedCollection != null ? Collection.load(loadedCollection.data) : new Collection<DObj>(book);
@@ -49,7 +50,6 @@ class TestCollection {
 		};
 		var record = new Record(data);
 		collection.addRecord(record);
-		collection.persistRecords();
 		collection.persist();
 	}
 

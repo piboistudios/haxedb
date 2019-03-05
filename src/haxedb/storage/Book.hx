@@ -63,22 +63,34 @@ class Book {
 		var indexPage = new Page(0, this);
 		var serializer = new haxe.Serializer();
 		serializer.serialize(index);
-
-		if (System.library != null) {
-			this.index.id = System.library.count();
-			if (System.library.getById(this.index.id) == null) {
-				System.library.addRecord(new Record<BookRecord>(this.index));
-				System.library.persistRecords();
-			}
-		}
 		indexPage.writeFromString(serializer.toString());
 		this.persistPage(indexPage);
+		persist(true);
+	}
+
+	function persist(isNew = false) {
+		updateIndexPage();
+		if (System.library != null) {
+			if (isNew)
+				this.index.id = System.library.count();
+
+			if (System.library.getById(this.index.id) == null) {
+				System.log('Adding $dbFile to library! ${this.index}');
+				System.library.addRecord(new Record<BookRecord>(this.index));
+			} else {
+				System.log('Updating $dbFile in library ${this.index}');
+				System.library.updateRecord(record -> record.data.id == this.index.id, this.index);
+			}
+			System.library.persistRecords();
+		}
 	}
 
 	function updateIndexPage() {
 		var indexPage = this.readPage(0);
-		if (indexPage == null)
-			throw "Cannot update null index page.";
+		if (indexPage == null) {
+			this.writeIndexPage();
+			return;
+		}
 		var indexPage = new Page(0, this);
 		var serializer = new haxe.Serializer();
 		serializer.serialize(this.index);
@@ -116,8 +128,7 @@ class Book {
 		output.close();
 		if (incrementNumPages) {
 			this.index.pages++;
-			if (pid != 0)
-				this.updateIndexPage();
+			this.persist();
 		}
 	}
 

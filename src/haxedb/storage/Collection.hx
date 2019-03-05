@@ -8,8 +8,8 @@ import haxedb.record.Record;
 
 class Collection<T> {
 	public var index(default, null):CollectionRecord;
+	public var pages(default, null):Map<Int, RecordsPage<T>>;
 
-	var pages:Map<Int, RecordsPage<T>>;
 	var book:Book;
 	var dirtyPages:Array<Int>;
 
@@ -38,20 +38,24 @@ class Collection<T> {
 	}
 
 	public function persist() {
+		this.persistRecords();
 		if (System.collectionManager != null) {
-			trace('TRYING TO PERSIST $index');
 			if (System.collectionManager.getById(this.index.id) == null) {
 				System.collectionManager.addRecord(new Record<CollectionRecord>(this.index));
-				System.collectionManager.persistRecords();
+			} else {
+				System.collectionManager.updateRecord(record -> record.data.id == this.index.id, this.index);
 			}
+			System.collectionManager.persistRecords();
 		}
 	}
 
 	public function persistRecords() {
 		if (this.book == null)
 			throw "Cannot persist page with no book.";
+		System.log('Dirty pages: $dirtyPages');
 		this.dirtyPages.iter(pageNo -> {
 			var page = this.getPage(pageNo);
+			System.log('Page no. $pageNo: $page');
 			this.book.persistPage(page);
 			trace("Persisted dirty page");
 			trace({
@@ -84,32 +88,34 @@ class Collection<T> {
 	}
 
 	public function addRecord(record:Record<T>) {
-		if (this.book != null)
-			trace('$record will be added to ${this.book.dbFile}');
 		for (pageNo in this.index.pages) {
 			var page = this.getPage(pageNo);
-			trace('Trying page: ${page.string()}');
+
 			if (page != null && page.addRecord(record)) {
 				this.dirtyPages.push(page.id());
 				return true;
 			} else {
 				var pageInfo = {id: page.id(), content: page.string(), size: page.size()};
-				trace('Could not add $record to $pageInfo');
 			}
 		}
-		trace('$record couldn\'t fit existing pages ${this.index.pages}');
+
 		try {
 			var newPage = new RecordsPage<T>(-1, this.book);
 
 			this.index.pages.push(newPage.id());
+			System.log('Pages now: ${this.index.pages}');
 			this.pages.set(newPage.id(), newPage);
+
 			if (this.book != null) {
+				var retVal = newPage.addRecord(record);
 				this.book.persistPage(newPage);
 				this.dirtyPages.push(newPage.id());
-				trace('adding record to new page: $newPage');
+				this.persist();
+				return retVal;
+			} else {
+				this.persist();
 				return newPage.addRecord(record);
-			} else
-				return newPage.addRecord(record);
+			}
 		} catch (ex:Dynamic) {
 			throw ex;
 		}
@@ -129,9 +135,31 @@ class Collection<T> {
 		return this.getRecords(record -> true).length;
 	}
 
+	public function updateRecord(predicate:Record<T>->Bool, value:T) {
+		for (pageNo in this.index.pages) {
+			var page = this.getPage(pageNo);
+			if (page != null && page.updateRecord(predicate, value)) {
+				this.dirtyPages.push(page.id());
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public function updateRecords(predicate:Record<T>->Bool, value:T) {
+		var retVal = false;
+		for (pageNo in this.index.pages) {
+			var page = this.getPage(pageNo);
+			if (page != null && page.updateRecord(predicate, value)) {
+				this.dirtyPages.push(page.id());
+				retVal = true;
+			}
+		}
+		return retVal;
+	}
+
 	public function getRecords(predicate:Record<T>->Bool) {
 		var aggregate = [];
-		trace('Getting records from pages: ${this.index.pages}');
 		for (pageNo in this.index.pages) {
 			var page = this.getPage(pageNo);
 			var result = page != null ? page.getRecords(predicate) : null;

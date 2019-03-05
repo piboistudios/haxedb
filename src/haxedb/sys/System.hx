@@ -33,22 +33,33 @@ class System {
 	}
 
 	public static function init() {
+		log('-----------------------------------------------------------------------------------');
 		if (!tryLoadFromFile()) {
 			index = new SysIndex();
 			var library = new Library(sysBook);
-			var collectionManager = new CollectionManager(sysBook);
 			var prefacePage = new Page(1, sysBook);
 			index.library = library.index;
-			index.collectionManager = collectionManager.index;
 			prefacePage.writeFromString(haxe.Serializer.run(index));
 			sysBook.persistPage(prefacePage);
-			System.library.addRecord(new Record<BookRecord>(sysBook.index));
+			var collectionManager = new CollectionManager(sysBook);
+			index.collectionManager = collectionManager.index;
+			System.collectionManager.persist();
+			// System.library.addRecord(new Record<BookRecord>(sysBook.index));
+			// System.library.persist();
+
 			var print = {id: prefacePage.id(), content: prefacePage.string(), nextPage: sysBook.nextFreePage()};
-			trace('preface: $print');
+			log('preface: $print');
+			log('Libraries: ${System.library}');
+			log('Collections: ${System.collectionManager}');
 		} else {
 			trace("successfully loaded from file");
 			trace(index);
 		}
+	}
+
+	public static function log(text) {
+		var fileContent = js.node.Fs.existsSync('./sys.db.log') ? js.node.Fs.readFileSync('./sys.db.log').toString() : "";
+		js.node.Fs.writeFileSync('./sys.db.log', fileContent + '$text\n');
 	}
 
 	static function tryLoadFromFile():Bool {
@@ -71,12 +82,10 @@ class System {
 	static public function teardown() {
 		var prefacePage = new Page(1, sysBook);
 		var newIndex = new SysIndex();
-		newIndex.library = library.index;
-		newIndex.collectionManager = collectionManager.index;
-		library.persistRecords();
-		collectionManager.persistRecords();
 		collectionManager.persist();
 		library.persist();
+		newIndex.library = library.index;
+		newIndex.collectionManager = collectionManager.index;
 		prefacePage.writeFromString(haxe.Serializer.run(newIndex));
 		sysBook.persistPage(prefacePage);
 	}

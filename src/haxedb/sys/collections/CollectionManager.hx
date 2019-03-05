@@ -2,8 +2,10 @@ package haxedb.sys.collections;
 
 import haxedb.storage.Collection;
 import haxedb.record.collections.CollectionRecord;
+import haxedb.storage.Book;
 
 class CollectionManager extends Collection<CollectionRecord> {
+
 	public function getById<T>(id:Int) {
 		var result = this.getRecord(record -> record.data.id == id);
 		var collections = this.getRecords(record -> true);
