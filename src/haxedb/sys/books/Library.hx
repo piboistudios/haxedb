@@ -10,9 +10,6 @@ import haxedb.record.Record;
 class Library extends Collection<BookRecord> {
 	public function getById(id:Int):Book {
 		var result = this.getRecord(record -> record.data.id == id);
-		var allRecords = this.getRecords(record -> true);
-		trace(allRecords);
-		trace('Result: $result');
 		return result != null ? Book.fromIndex(result.data) : null;
 	}
 

@@ -1,5 +1,7 @@
 package;
 
+using Lambda;
+
 import haxedb.sys.System;
 import haxedb.storage.Book;
 import haxedb.storage.Collection;
@@ -14,7 +16,7 @@ typedef DObj = {
 class TestCollection {
 	public static function main() {
 		init();
-		for (i in 0...10) {
+		for (i in 0...50) {
 			insertRecord();
 		}
 		readAll();
@@ -25,16 +27,23 @@ class TestCollection {
 	static var collection:Collection<DObj>;
 
 	static function close() {
-		trace(System.collectionManager.getRecords(record -> true));
+		trace('CLOSING -------------------------------');
+		trace(System.collectionManager.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
+		trace(System.library.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
 		System.teardown();
 	}
 
 	static function init() {
 		System.init();
-		trace(System.collectionManager);
-		book = Book.open('test-collection');
-		var loadedCollection = System.collectionManager.getRecord(record -> record.data.bookId == 1);
+        trace('OPENING -------------------------------');
+		trace(System.collectionManager.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
+		trace(System.library.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
+		book = Book.open('test-collection-2020');
+		var loadedCollection = System.collectionManager.getRecord(record -> record.data.bookId == book.index.id);
 		collection = loadedCollection != null ? Collection.load(loadedCollection.data) : new Collection<DObj>(book);
+		if (loadedCollection != null) {
+			trace('---------------------------LOAD SUCCESS');
+		}
 	}
 
 	static var names = [

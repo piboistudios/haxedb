@@ -15,6 +15,8 @@ class Book {
 	public var pageSize(get, null):Int;
 	public var dbFile(get, never):String;
 
+	var persisted = false;
+
 	function get_dbFile() {
 		return './${this.index.blobFile}.db';
 	}
@@ -73,13 +75,15 @@ class Book {
 		if (System.library != null) {
 			if (isNew)
 				this.index.id = System.library.count();
-
-			if (System.library.getById(this.index.id) == null) {
+			var libRecord = System.library.getById(this.index.id);
+			if (!this.persisted && libRecord == null) {
 				System.log('Adding $dbFile to library! ${this.index}');
 				System.library.addRecord(new Record<BookRecord>(this.index));
+				this.persisted = true;
 			} else {
 				System.log('Updating $dbFile in library ${this.index}');
-				System.library.updateRecord(record -> record.data.id == this.index.id, this.index);
+				if (libRecord.dbFile == this.dbFile)
+					System.library.updateRecord(record -> record.data.id == this.index.id, this.index);
 			}
 			System.library.persistRecords();
 		}

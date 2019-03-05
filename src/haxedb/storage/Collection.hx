@@ -40,12 +40,15 @@ class Collection<T> {
 	public function persist() {
 		this.persistRecords();
 		if (System.collectionManager != null) {
+			trace('Persisting collection ${this.index}');
 			if (System.collectionManager.getById(this.index.id) == null) {
 				System.collectionManager.addRecord(new Record<CollectionRecord>(this.index));
 			} else {
 				System.collectionManager.updateRecord(record -> record.data.id == this.index.id, this.index);
 			}
 			System.collectionManager.persistRecords();
+		} else {
+			trace('Failed to persist collection ${this.index}');
 		}
 	}
 
@@ -88,14 +91,17 @@ class Collection<T> {
 	}
 
 	public function addRecord(record:Record<T>) {
+		trace('Adding ${record.data} to ${this.index}');
 		for (pageNo in this.index.pages) {
 			var page = this.getPage(pageNo);
-
+			var pageInfo = page != null ? ({id: page.id(), content: page.string(), size: page.size()}) : null;
 			if (page != null && page.addRecord(record)) {
 				this.dirtyPages.push(page.id());
+				trace('Put record $record into $pageInfo');
+				this.persist();
 				return true;
 			} else {
-				var pageInfo = {id: page.id(), content: page.string(), size: page.size()};
+				trace('Couldn\'t fit $record into $pageInfo');
 			}
 		}
 
