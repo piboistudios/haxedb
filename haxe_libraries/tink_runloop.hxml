@@ -1,0 +1,6 @@
+-D tink_runloop=0.1.0
+# @install: lix --silent download "gh://github.com/haxetink/tink_runloop#c084776fff7b48cb487606650baf1445c4739ad0" into tink_runloop/0.1.0/github/c084776fff7b48cb487606650baf1445c4739ad0
+-lib tink_concurrent
+-lib tink_syntaxhub
+-cp ${HAXE_LIBCACHE}/tink_runloop/0.1.0/github/c084776fff7b48cb487606650baf1445c4739ad0/src
+--macro tink.runloop.Boot.boot()

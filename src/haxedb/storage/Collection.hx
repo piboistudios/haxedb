@@ -2,6 +2,7 @@ package haxedb.storage;
 
 using Lambda;
 
+import tink.CoreApi;
 import haxedb.sys.System;
 import haxedb.record.collections.CollectionRecord;
 import haxedb.record.Record;
@@ -28,7 +29,8 @@ class Collection<T> {
 
 	public static function load<T>(index:CollectionRecord) {
 		if (System.library != null) {
-			
+			var library = System.library;
+			System.log('Library: $library\n${library.getRecords(record -> true)}');
 			var book = System.library.getById(index.bookId);
 			if (book == null)
 				throw 'Cannot resolve collection-book ${index.bookId}';
@@ -39,19 +41,26 @@ class Collection<T> {
 			throw "Cannot load collection-books without library.";
 	}
 
-	public function persist() {
-		this.persistRecords();
-		if (System.collectionManager != null) {
-			if (!this.loaded && this.index.id == 0) {
-				this.index.id = System.collectionManager.count();
-			}
-			if (System.collectionManager.getById(this.index.id) == null) {
-				System.collectionManager.addRecord(new Record<CollectionRecord>(this.index));
-			} else {
-				System.collectionManager.updateRecord(record -> record.data.id == this.index.id, this.index);
-			}
-			System.collectionManager.persistRecords(true);
-		} 
+	public function persist():Promise<Bool> {
+		return Future.async((done:Bool->Void) -> {
+			this.persistRecords().handle(_ -> {
+				if (System.collectionManager != null) {
+					if (!this.loaded && this.index.id == 0) {
+						this.index.id = System.collectionManager.count();
+					}
+					var promise = if (System.collectionManager.getById(this.index.id) == null) {
+						System.collectionManager.addRecord(new Record<CollectionRecord>(this.index));
+					} else {
+						System.collectionManager.updateRecord(record -> record.data.id == this.index.id, this.index);
+					}
+					promise.next(success -> {
+						System.collectionManager.persistRecords(true).handle(_ -> {
+							done(true);
+						});
+					});
+				}
+			});
+		});
 	}
 
 	inline function isCollectionMgr() {
@@ -61,20 +70,20 @@ class Collection<T> {
 	public function persistRecords(force = false) {
 		if (this.book == null)
 			throw "Cannot persist page with no book.";
-		
+
 		var pages = (!force ? this.dirtyPages : this.index.pages);
-		
+		var futures:Array<Future<Bool>> = [];
 		pages.iter(pageNo -> {
 			var page = this.getPage(pageNo);
 			var pageData = {
 				id: page.id(),
 				content: page.string()
 			};
-			
-			this.book.persistPage(page);
-			
+
+			futures.push(this.book.persistPage(page));
 		});
 		this.dirtyPages = [];
+		return Future.ofMany(futures);
 	}
 
 	public function setIndex(index:CollectionRecord) {
@@ -96,70 +105,131 @@ class Collection<T> {
 		}
 		return null;
 	}
-    public function addRecords(records:Array<Record<T>>) {
-        for(pageNo in this.index.pages) {
-            var page = this.getPage(pageNo);
-            if(page != null && page.addRecords(records)) {
-                this.dirtyPages.push(page.id());
-                this.persist();
-                return true;
-            }
-        }
-       try {
-			var newPage = new RecordsPage<T>(-1, this.book);
 
-			this.index.pages.push(newPage.id());
-			this.pages.set(newPage.id(), newPage);
-
-			if (this.book != null) {
-				var retVal = newPage.addRecords(records);
-                if(!retVal) {
-                    var bisection=Std.int(records.length / 2);
-                    var records1 = records.slice(0, bisection);
-                    var records2 = records.slice(bisection);
-                    return this.addRecords(records1) && this.addRecords(records2);
-                }
-				this.book.persistPage(newPage);
-				this.dirtyPages.push(newPage.id());
-				this.persist();
-				return retVal;
-			} else {
-				this.persist();
-				return newPage.addRecords(records);
+	public function addRecords(records:Array<Record<T>>) {
+		return Future.async((done:Bool->Void) -> {
+			for (pageNo in this.index.pages) {
+				var page = this.getPage(pageNo);
+				if (page != null) {
+					var retVal = false;
+					page.addRecords(records)
+					.next((success:Bool) -> {
+						retVal = success;
+						if (success) {
+							this.dirtyPages.push(page.id());
+							this.persist();
+							done(true);
+						}
+						return Noise;
+						
+					});
+					if (retVal)
+						break;
+				}
 			}
-		} catch (ex:Dynamic) {
-			throw ex;
-		}
-    }
+			try {
+				var newPage = new RecordsPage<T>(-1, this.book);
+
+				this.index.pages.push(newPage.id());
+				this.pages.set(newPage.id(), newPage);
+
+				if (this.book != null) {
+					var retVal = false;
+					newPage.addRecords(records)
+						.next((success:Bool) -> {
+							retVal = success;
+							if (!success) {
+								var bisection = Std.int(records.length / 2);
+								var records1 = records.slice(0, bisection);
+								var records2 = records.slice(bisection);
+								var futures = [this.addRecords(records1), this.addRecords(records2)];
+								Future.ofMany(futures)
+									.handle(successes -> {
+										done(successes[0] && successes[1]);
+									});
+								return true;
+							} else
+								return false;
+						})
+						.next((proceed:Bool) -> {
+							if (proceed) {
+								this.dirtyPages.push(newPage.id());
+								this.book.persistPage(newPage)
+									.handle(succcess -> {
+										this.persist()
+											.handle(success -> {
+												done(retVal);
+											});
+									});
+							}
+							return Noise;
+						});
+				} else {
+					this.persist().next(_ -> {
+						return newPage.addRecords(records);
+					}).next((success:Bool) -> {
+						done(success);
+						return Noise;
+					});
+				}
+			} catch (ex:Dynamic) {
+				throw ex;
+			}
+		});
+	}
+
 	public function addRecord(record:Record<T>) {
-		for (pageNo in this.index.pages) {
-			var page = this.getPage(pageNo);
-			if (page != null && page.addRecord(record)) {
-				this.dirtyPages.push(page.id());
-				this.persist();
-				return true;
-			} 
-		}
-
-		try {
-			var newPage = new RecordsPage<T>(-1, this.book);
-
-			this.index.pages.push(newPage.id());
-			this.pages.set(newPage.id(), newPage);
-
-			if (this.book != null) {
-				var retVal = newPage.addRecord(record);
-				this.book.persistPage(newPage);
-				this.dirtyPages.push(newPage.id());
-				this.persist();
-				return retVal;
-			} else {
-				this.persist();
-				return newPage.addRecord(record);
+		return Future.async((cb:Bool->Void) -> {
+			for (pageNo in this.index.pages) {
+				var page = this.getPage(pageNo);
+				if (page != null) {
+					var retVal = false;
+					page.addRecord(record).next(success -> {
+						retVal = success;
+						if (success) {
+							this.dirtyPages.push(page.id());
+							this.persist();
+							cb(true);
+						}
+						return Noise;
+					});
+					if (retVal)
+						break;
+				}
 			}
-		} catch (ex:Dynamic) {
-			throw ex;
-		}
+
+			try {
+				var newPage = new RecordsPage<T>(-1, this.book);
+
+				this.index.pages.push(newPage.id());
+				this.pages.set(newPage.id(), newPage);
+
+				if (this.book != null) {
+					var retVal = false;
+					newPage.addRecord(record)
+						.next(success -> {
+							retVal = success;
+							return this.book.persistPage(newPage);
+						})
+						.next(_ -> {
+							this.dirtyPages.push(newPage.id());
+							return this.persist();
+						})
+						.next(_ -> {
+							cb(retVal);
+							return Noise;
+						});
+				} else {
+					this.persist();
+					newPage.addRecord(record).next((success:Bool) -> {
+						cb(success);
+						return Noise;
+					});
+				}
+			} catch (ex:Dynamic) {
+				throw ex;
+			}
+		});
 	}
 
 	public function getRecord(predicate:Record<T>->Bool) {
@@ -177,26 +247,48 @@ class Collection<T> {
 	}
 
 	public function updateRecord(predicate:Record<T>->Bool, value:T) {
-		for (pageNo in this.index.pages) {
-			var page = this.getPage(pageNo);
-			if (page != null && page.updateRecord(predicate, value)) {
-				this.dirtyPages.push(page.id());
-				return true;
+		return Future.async((cb:Bool->Void) -> {
+			for (pageNo in this.index.pages) {
+				var page = this.getPage(pageNo);
+				if (page != null) {
+					var retVal = false;
+					page.updateRecord(predicate, value).next((success:Bool) -> {
+						retVal = success;
+						if (success) {
+							this.dirtyPages.push(page.id());
+							cb(true);
+						}
+						return Noise;
+					});
+					if (retVal)
+						break;
+				}
 			}
-		}
-		return false;
+			cb(false);
+		});
 	}
 
 	public function updateRecords(predicate:Record<T>->Bool, value:T) {
 		var retVal = false;
-		for (pageNo in this.index.pages) {
-			var page = this.getPage(pageNo);
-			if (page != null && page.updateRecord(predicate, value)) {
-				this.dirtyPages.push(page.id());
-				retVal = true;
+		return Future.async((cb:Bool->Void) -> {
+			for (pageNo in this.index.pages) {
+				var page = this.getPage(pageNo);
+				if (page != null) {
+					var retVal = false;
+					page.updateRecords(predicate, value).next((success:Bool) -> {
+						retVal = success;
+						if (success) {
+							this.dirtyPages.push(page.id());
+							retVal = true;
+						}
+						return Noise;
+					});
+					if (retVal)
+						break;
+				}
 			}
-		}
-		return retVal;
+			cb(retVal);
+		});
 	}
 
 	public function getRecords(predicate:Record<T>->Bool) {
@@ -211,14 +303,21 @@ class Collection<T> {
 	}
 
 	public function removeRecord(record:Record<T>) {
-		for (pageNo in this.index.pages) {
-			var page = this.getPage(pageNo);
-			if (page != null && page.removeRecord(record.location.recordNo)) {
-				this.dirtyPages.push(page.id());
-				return true;
+		return Future.async((done:Bool->Void) -> {
+			for (pageNo in this.index.pages) {
+				var page = this.getPage(pageNo);
+				if (page != null) {
+					page.removeRecord(record.location.recordNo).next((success:Bool) -> {
+						if (success) {
+							this.dirtyPages.push(page.id());
+							done(true);
+						}
+						return Noise;
+					});
+				}
 			}
-		}
-		return false;
+			return false;
+		});
 	}
 
 	public static function fromBook<T>(book:Book) {

@@ -9,22 +9,34 @@ import haxedb.sys.System;
 import haxedb.storage.Book;
 import haxedb.storage.Collection;
 import haxedb.record.Record;
+import tink.CoreApi;
 
 class Console {
 	public static function main() {
 		init();
-		run();
+		
 	}
 
 	static function init() {
-		System.init();
-		var dbApi:haxe.DynamicAccess<Dynamic> = new haxe.DynamicAccess<Dynamic>();
-		for (key in api.keys()) {
-			dbApi.set(key, api[key]);
+		System.init().next((success:Bool) -> {
+			if (success) {
+				trace('System successfully initialized.');
+			}
+			trace("Ready");
+			configureApi(dbApi, 'db');
+			configureApi(sessionApi, 'session');
+			printInstructions();
+			run();
+			return Noise;
+		});
+	}
+
+	static function configureApi(apiMap:Map<String, Dynamic>, name:String) {
+		var api:haxe.DynamicAccess<Dynamic> = new haxe.DynamicAccess<Dynamic>();
+		for (key in apiMap.keys()) {
+			api.set(key, apiMap[key]);
 		}
-		trace('api: $dbApi');
-		interp.variables.set('db', dbApi);
-		printInstructions();
+		interp.variables.set(name, api);
 	}
 
 	static function printInstructions() {
@@ -56,14 +68,12 @@ class Console {
 				if (input == '.exit') {
 					teardown();
 					rl.close();
-				
+
 					// return;
-				} 
-				else if(input == '.abort') {
+				} else if (input == '.abort') {
 					scriptLines = [];
 					run();
-				}
-				else {
+				} else {
 					scriptLines.push(input);
 					run();
 				}
@@ -92,17 +102,19 @@ class Console {
 		return retVal;
 	}
 
-	static var api:Map<String, Dynamic> = [
-		'collection' => (collectionName:String) -> {
-			var book = Book.open(collectionName);
-			var collection = Collection.fromBook(book);
-			return collection;
-		},
+	static var dbApi:Map<String, Dynamic> = [
+		'collection' => (collectionName:String) -> Future.async((done:Collection<Dynamic>->Void) -> {
+				Book.open(collectionName).next((book:Book) -> {
+					var collection = book != null ? Collection.fromBook(book) : null;
+					done(collection);
+					return Noise;
+				});
+			}),
 		'record' => (data:Dynamic) -> {
 			return new Record(data);
 		},
-		'persist' => interp.variables.set
 	];
+	static var sessionApi:Map<String, Dynamic> = ['persist' => interp.variables.set];
 	static var apiDefinitions:Map<String, String> = [
 		'collection' => '(collectionName:String) -> Collection - Retrieves a collection by name; creates one if one doesn\'t exist',
 		'record' => '(data:Dynamic) -> Record -  Creates a new record object from some data'

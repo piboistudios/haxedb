@@ -1,5 +1,6 @@
 package haxedb.sys;
 
+import tink.CoreApi;
 import haxedb.storage.Page;
 import haxedb.storage.Book;
 import haxedb.sys.books.Library;
@@ -9,7 +10,7 @@ import haxedb.record.books.BookRecord;
 import haxedb.record.collections.CollectionRecord;
 
 class System {
-	public static var sysBook = Book.open('sys');
+	public static var sysBook:Book;
 	public static var library(get, null):Library;
 	public static var collectionManager(get, null):CollectionManager;
 	public static var collectionsInitialized = false;
@@ -34,24 +35,26 @@ class System {
 
 	public static function init() {
 		log('--------------------------------------BOOT (${Date.now().toString()})------------------------------------------');
-		if (!tryLoadFromFile()) {
-			index = new SysIndex();
-			var library = new Library(sysBook);
-			var prefacePage = new Page(1, sysBook);
-			index.library = library.index;
-			prefacePage.writeFromString(haxe.Serializer.run(index));
-			sysBook.persistPage(prefacePage);
-			var collectionManager = new CollectionManager(sysBook);
-			index.collectionManager = collectionManager.index;
-			System.collectionManager.persist();
-			// System.library.addRecord(new Record<BookRecord>(sysBook.index));
-			// System.library.persist();
-
-			var print = {id: prefacePage.id(), content: prefacePage.string(), nextPage: sysBook.nextFreePage()};
-			log('preface: $print');
-			log('Libraries: ${System.library}');
-			log('Collections: ${System.collectionManager}');
-		}
+		trace("DB Init");
+		return Future.async((done:Bool->Void) -> {
+			trace("Open System Book");
+			Book.open('sys').handle((system:Book) -> {
+				sysBook = system;
+				trace('Got system book? $sysBook');
+				if (!tryLoadFromFile()) {
+					index = new SysIndex();
+					var library = new Library(sysBook);
+					var collectionManager = new CollectionManager(sysBook);
+					var prefacePage = new Page(1, sysBook);
+					index.library = library.index;
+					index.collectionManager = collectionManager.index;
+					prefacePage.writeFromString(haxe.Serializer.run(index));
+					trace("Persisting preface?");
+					sysBook.persistPage(prefacePage);
+					done(true);
+				}
+			});
+		});
 	}
 
 	public static function log(text) {
@@ -61,10 +64,12 @@ class System {
 
 	static function tryLoadFromFile():Bool {
 		var prefacePage = sysBook.readPage(1);
+		// trace('preface: ${({id: prefacePage.id(), content: prefacePage.string()})}');
 		if (prefacePage != null) {
 			index = haxe.Unserializer.run(prefacePage.string());
 			_library = Library.load(index.library);
 			_collectionManager = CollectionManager.load(index.collectionManager);
+			trace('Loaded\n$_library\n$_collectionManager');
 			return true;
 		} else {
 			return false;
@@ -74,13 +79,19 @@ class System {
 	static public function teardown() {
 		var prefacePage = new Page(1, sysBook);
 		var newIndex = new SysIndex();
-		collectionManager.persist();
-		library.persist();
-		newIndex.library = library.index;
-		newIndex.collectionManager = collectionManager.index;
-		prefacePage.writeFromString(haxe.Serializer.run(newIndex));
-		sysBook.persistPage(prefacePage);
-		log('--------------------------------------END (${Date.now().toString()})------------------------------------------');
+		collectionManager.persist()
+			.handle(() -> {
+				library.persist()
+					.handle(() -> {
+						newIndex.library = library.index;
+						newIndex.collectionManager = collectionManager.index;
+						prefacePage.writeFromString(haxe.Serializer.run(newIndex));
+						sysBook.persistPage(prefacePage)
+							.handle(() -> {
+								log('--------------------------------------END (${Date.now().toString()})------------------------------------------');
+							});
+					});
+			});
 	}
 }
 

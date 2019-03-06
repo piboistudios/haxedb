@@ -1,7 +1,7 @@
 package haxedb.storage;
 
 using Lambda;
-
+import tink.CoreApi;
 import haxedb.storage.Page;
 import haxedb.record.Record;
 
@@ -15,7 +15,7 @@ class RecordsPage<T> extends Page {
 		return str.length != 0 ? haxe.Unserializer.run(str) : [];
 	}
 
-	public function addRecord(record:Record<T>) {
+	public function addRecord(record:Record<T>):Promise<Bool> {
 		var records = this.records();
 		record.location.pageNo = this.header.id;
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
@@ -23,30 +23,30 @@ class RecordsPage<T> extends Page {
 		return this.writeFromRecords(records);
 	}
 
-	public function addRecords(incomingRecords:Array<Record<T>>) {
+	public function addRecords(incomingRecords:Array<Record<T>>):Promise<Bool> {
 		var records = this.records();
 		var addRecord = (record:Record<T>) -> {
 			record.location.pageNo = this.header.id;
 			record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 			records.push(record);
 		};
-        for(record in incomingRecords) {
-            addRecord(record);
-        }
-        return this.writeFromRecords(records);
+		for (record in incomingRecords) {
+			addRecord(record);
+		}
+		return this.writeFromRecords(records);
 	}
 
-	public function updateRecord(predicate:Record<T>->Bool, value:T) {
+	public function updateRecord(predicate:Record<T>->Bool, value:T):Promise<Bool> {
 		var records = this.records();
 		var recordToReplace = records.find(predicate);
 		if (recordToReplace != null) {
 			recordToReplace.data = value;
 			return this.writeFromRecords(records);
 		} else
-			return false;
+			return Future.sync(false);
 	}
 
-	public function updateRecords(predicate:Record<T>->Bool, value:T) {
+	public function updateRecords(predicate:Record<T>->Bool, value:T):Promise<Bool> {
 		var records = this.records();
 		var recordsToReplace = records.filter(predicate);
 		if (recordsToReplace != null && recordsToReplace.length != 0) {
@@ -55,7 +55,7 @@ class RecordsPage<T> extends Page {
 			});
 			return this.writeFromRecords(records);
 		} else
-			return false;
+			return Future.sync(false);
 	}
 
 	public function getRecord(predicate:Record<T>->Bool) {
@@ -68,7 +68,7 @@ class RecordsPage<T> extends Page {
 		return records.filter(predicate);
 	}
 
-	public function removeRecord(recordNo:Int) {
+	public function removeRecord(recordNo:Int):Promise<Bool> {
 		var records = this.records();
 		var recordToRemove = records.find(record -> record.location.recordNo == recordNo);
 		if (recordToRemove == null)
@@ -77,9 +77,12 @@ class RecordsPage<T> extends Page {
 		return this.writeFromRecords(records);
 	}
 
-	function writeFromRecords(records:Array<Record<T>>) {
-		this.book.persistPage(this);
-		return this.writeFromString(haxe.Serializer.run(records));
+	function writeFromRecords(records:Array<Record<T>>):Promise<Bool> {
+		return Future.async((cb:Bool->Void) -> {
+			this.book.persistPage(this).handle(() -> {
+				cb(this.writeFromString(haxe.Serializer.run(records)));
+			});
+		});
 	}
 
 	public static function fromPage<T>(page:Page):RecordsPage<T> {

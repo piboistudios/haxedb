@@ -2,6 +2,9 @@
 -lib tink_core
 -lib crypto
 -lib hscript
+# -lib tink_runloop
+# -D tink_runloop
+-lib asys
 -cp src
 -main Console
 

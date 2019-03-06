@@ -20,17 +20,4 @@ class Library extends Collection<BookRecord> {
 		lib.book = System.sysBook;
 		return lib;
 	}
-
-	public override function addRecord(record:Record<BookRecord>) {
-		var records = this.getRecords(record -> true);
-		
-		return super.addRecord(record);
-	}
-
-	public override function persistRecords(force = false) {
-		var allRecords = this.getRecords(record -> true);
-		super.persistRecords(force);
-		var allNewRecords = this.getRecords(record -> true);
-		
-	}
 }

@@ -13,7 +13,8 @@ class CollectionManager extends Collection<CollectionRecord> {
 	public static function load(index:CollectionRecord):CollectionManager {
 		var mgr = new CollectionManager(System.sysBook);
 		mgr.loaded = true;
-		mgr.setIndex(index);
+		
+		mgr.setIndex(index != null ? index : new CollectionRecord());
 		mgr.book = System.sysBook;
 		return mgr;
 	}
