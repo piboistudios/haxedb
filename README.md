@@ -6,7 +6,7 @@ At the moment, this is simply applied research for possible future pursuits in d
 
 
 ## How to run
-The repo comes with the built Node.js file, you should be able to run the file and create collections wherever the file is located.
+The repo comes with the built Node.js (_test.js_) file, you should be able to run the file and create collections wherever the file is located.
 
 It exposes a very simple API allowing one to access/manipulate collections. For more details see the Collection class in src/haxedb/storage/Collection.
 
