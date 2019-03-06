@@ -1,8 +1,8 @@
 -lib hxnodejs
 -lib tink_core
 -lib crypto
-
+-lib hscript
 -cp src
--main TestCollection
+-main Console
 
 -js test.js

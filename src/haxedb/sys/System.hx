@@ -33,7 +33,7 @@ class System {
 	}
 
 	public static function init() {
-		log('-----------------------------------------------------------------------------------');
+		log('--------------------------------------BOOT (${Date.now().toString()})------------------------------------------');
 		if (!tryLoadFromFile()) {
 			index = new SysIndex();
 			var library = new Library(sysBook);
@@ -51,9 +51,6 @@ class System {
 			log('preface: $print');
 			log('Libraries: ${System.library}');
 			log('Collections: ${System.collectionManager}');
-		} else {
-			trace("successfully loaded from file");
-			trace(index);
 		}
 	}
 
@@ -64,11 +61,6 @@ class System {
 
 	static function tryLoadFromFile():Bool {
 		var prefacePage = sysBook.readPage(1);
-		trace("Preface:");
-		if (prefacePage != null)
-			trace(prefacePage.string());
-		else
-			trace('null');
 		if (prefacePage != null) {
 			index = haxe.Unserializer.run(prefacePage.string());
 			_library = Library.load(index.library);
@@ -88,6 +80,7 @@ class System {
 		newIndex.collectionManager = collectionManager.index;
 		prefacePage.writeFromString(haxe.Serializer.run(newIndex));
 		sysBook.persistPage(prefacePage);
+		log('--------------------------------------END (${Date.now().toString()})------------------------------------------');
 	}
 }
 

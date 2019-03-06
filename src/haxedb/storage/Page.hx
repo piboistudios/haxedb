@@ -49,7 +49,6 @@ class Page {
 			this.updateSize();
 			return true;
 		}
-		trace('${data.length} is too large for the page. (LIMIT: ${8000})');
 		return false;
 	}
 

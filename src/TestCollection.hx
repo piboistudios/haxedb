@@ -16,7 +16,7 @@ typedef DObj = {
 class TestCollection {
 	public static function main() {
 		init();
-		for (i in 0...50) {
+		for (i in 0...5) {
 			insertRecord();
 		}
 		readAll();
@@ -38,7 +38,7 @@ class TestCollection {
         trace('OPENING -------------------------------');
 		trace(System.collectionManager.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
 		trace(System.library.getRecords(record -> true).map(record -> haxe.Json.stringify(record)));
-		book = Book.open('test-collection-2020');
+		book = Book.open('test-collection-2019');
 		var loadedCollection = System.collectionManager.getRecord(record -> record.data.bookId == book.index.id);
 		collection = loadedCollection != null ? Collection.load(loadedCollection.data) : new Collection<DObj>(book);
 		if (loadedCollection != null) {

@@ -12,9 +12,11 @@ class Collection<T> {
 
 	var book:Book;
 	var dirtyPages:Array<Int>;
+	var loaded = false;
 
-	public function new(book:Book) {
+	public function new(book:Book, loaded = false) {
 		this.index = new CollectionRecord();
+		this.loaded = loaded;
 		this.index.pages = [];
 		if (book != null) {
 			this.index.bookId = book.id;
@@ -26,11 +28,11 @@ class Collection<T> {
 
 	public static function load<T>(index:CollectionRecord) {
 		if (System.library != null) {
-			trace('My book id is ${index.bookId}');
+			
 			var book = System.library.getById(index.bookId);
 			if (book == null)
 				throw 'Cannot resolve collection-book ${index.bookId}';
-			var newCollection = new Collection<T>(book);
+			var newCollection = new Collection<T>(book, true);
 			newCollection.setIndex(index);
 			return newCollection;
 		} else
@@ -40,32 +42,37 @@ class Collection<T> {
 	public function persist() {
 		this.persistRecords();
 		if (System.collectionManager != null) {
-			trace('Persisting collection ${this.index}');
+			if (!this.loaded && this.index.id == 0) {
+				this.index.id = System.collectionManager.count();
+			}
 			if (System.collectionManager.getById(this.index.id) == null) {
 				System.collectionManager.addRecord(new Record<CollectionRecord>(this.index));
 			} else {
 				System.collectionManager.updateRecord(record -> record.data.id == this.index.id, this.index);
 			}
-			System.collectionManager.persistRecords();
-		} else {
-			trace('Failed to persist collection ${this.index}');
-		}
+			System.collectionManager.persistRecords(true);
+		} 
 	}
 
-	public function persistRecords() {
+	inline function isCollectionMgr() {
+		return this.book == System.sysBook;
+	}
+
+	public function persistRecords(force = false) {
 		if (this.book == null)
 			throw "Cannot persist page with no book.";
-		System.log('Dirty pages: $dirtyPages');
-		this.dirtyPages.iter(pageNo -> {
+		
+		var pages = (!force ? this.dirtyPages : this.index.pages);
+		
+		pages.iter(pageNo -> {
 			var page = this.getPage(pageNo);
-			System.log('Page no. $pageNo: $page');
-			this.book.persistPage(page);
-			trace("Persisted dirty page");
-			trace({
+			var pageData = {
 				id: page.id(),
 				content: page.string()
-			});
-			trace('In book: $book');
+			};
+			
+			this.book.persistPage(page);
+			
 		});
 		this.dirtyPages = [];
 	}
@@ -91,25 +98,20 @@ class Collection<T> {
 	}
 
 	public function addRecord(record:Record<T>) {
-		trace('Adding ${record.data} to ${this.index}');
 		for (pageNo in this.index.pages) {
 			var page = this.getPage(pageNo);
 			var pageInfo = page != null ? ({id: page.id(), content: page.string(), size: page.size()}) : null;
 			if (page != null && page.addRecord(record)) {
 				this.dirtyPages.push(page.id());
-				trace('Put record $record into $pageInfo');
 				this.persist();
 				return true;
-			} else {
-				trace('Couldn\'t fit $record into $pageInfo');
-			}
+			} 
 		}
 
 		try {
 			var newPage = new RecordsPage<T>(-1, this.book);
 
 			this.index.pages.push(newPage.id());
-			System.log('Pages now: ${this.index.pages}');
 			this.pages.set(newPage.id(), newPage);
 
 			if (this.book != null) {
@@ -184,5 +186,14 @@ class Collection<T> {
 			}
 		}
 		return false;
+	}
+
+	public static function fromBook<T>(book:Book) {
+		var loadedCollection = System.collectionManager.getRecord(record -> record.data.bookId == book.index.id);
+		if (loadedCollection != null) {
+			return Collection.load(loadedCollection.data);
+		} else {
+			return new Collection<T>(book);
+		}
 	}
 }

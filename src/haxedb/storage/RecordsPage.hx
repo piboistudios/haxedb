@@ -8,7 +8,7 @@ import haxedb.record.Record;
 class RecordsPage<T> extends Page {
 	public function new(id = -1, book:Book = null) {
 		super(id, book);
-		trace('Creating records page:\npassed id $id\nassigned id: ${this.id()}');
+	
 	}
 
 	public function records():Array<Record<T>> {

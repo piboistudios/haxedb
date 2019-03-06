@@ -81,7 +81,7 @@ class Book {
 				System.library.addRecord(new Record<BookRecord>(this.index));
 				this.persisted = true;
 			} else {
-				System.log('Updating $dbFile in library ${this.index}');
+				System.log('Updating $dbFile: ${this.index}');
 				if (libRecord.dbFile == this.dbFile)
 					System.library.updateRecord(record -> record.data.id == this.index.id, this.index);
 			}

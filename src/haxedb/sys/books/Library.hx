@@ -15,22 +15,22 @@ class Library extends Collection<BookRecord> {
 
 	public static function load(index:CollectionRecord):Library {
 		var lib = new Library(System.sysBook);
+		lib.loaded = true;
 		lib.setIndex(index);
 		lib.book = System.sysBook;
-		trace('Loaded lib: $lib');
 		return lib;
 	}
 
 	public override function addRecord(record:Record<BookRecord>) {
 		var records = this.getRecords(record -> true);
-		trace('Adding record to library: $record\n\n$records');
+		
 		return super.addRecord(record);
 	}
 
-	public override function persistRecords() {
+	public override function persistRecords(force = false) {
 		var allRecords = this.getRecords(record -> true);
-		super.persistRecords();
+		super.persistRecords(force);
 		var allNewRecords = this.getRecords(record -> true);
-		System.log('Persisting library records\n    BEFORE: ${allRecords}\n    AFTER: ${allNewRecords}');
+		
 	}
 }
