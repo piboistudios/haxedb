@@ -498,12 +498,11 @@ haxedb_storage_Book.open = function(file) {
 	}
 	return tink_core__$Future_Future_$Impl_$.async(function(cb) {
 		haxedb_sys_System.log("--------------OPENING " + file + "--------------");
-		haxe_Log.trace("Opening " + file,{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 54, className : "haxedb.storage.Book", methodName : "open"});
 		var book = new haxedb_storage_Book();
 		book.index.blobFile = file;
 		return book.init().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 			cb(book);
-			haxe_Log.trace("Book opened " + Std.string(book),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 59, className : "haxedb.storage.Book", methodName : "open"});
+			haxedb_sys_System.log("Book opened " + Std.string(book));
 			return;
 		}));
 	});
@@ -527,7 +526,7 @@ haxedb_storage_Book.prototype = {
 			var indexPage = _gthis.readPage(0);
 			if(indexPage == null) {
 				_gthis.writeIndexPage(true).handle(function(success) {
-					haxe_Log.trace("Index written",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 69, className : "haxedb.storage.Book", methodName : "init"});
+					haxedb_sys_System.log("Index written " + Std.string(_gthis.index));
 					done(success);
 					return;
 				});
@@ -535,7 +534,7 @@ haxedb_storage_Book.prototype = {
 				var indexData = indexPage.string();
 				if(indexData.length != 0) {
 					_gthis.index = haxe_Unserializer.run(indexData);
-					haxe_Log.trace("Index loaded " + Std.string(_gthis.index),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 76, className : "haxedb.storage.Book", methodName : "init"});
+					haxedb_sys_System.log("Book loaded " + Std.string(_gthis.index));
 				}
 				done(true);
 			}
@@ -552,11 +551,8 @@ haxedb_storage_Book.prototype = {
 			var serializer = new haxe_Serializer();
 			serializer.serialize(_gthis.index);
 			indexPage.writeFromString(serializer.toString());
-			haxe_Log.trace("index page: " + Std.string({ id : indexPage.id(), content : indexPage.string(), expected : _gthis.index}),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 90, className : "haxedb.storage.Book", methodName : "writeIndexPage"});
 			return _gthis.persistPage(indexPage).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-				haxe_Log.trace("Persisting book",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 92, className : "haxedb.storage.Book", methodName : "writeIndexPage"});
 				return _gthis.persist(isNew).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-					haxe_Log.trace("Book persisted to library",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 94, className : "haxedb.storage.Book", methodName : "writeIndexPage"});
 					done(true);
 					return;
 				}));
@@ -568,9 +564,9 @@ haxedb_storage_Book.prototype = {
 			isNew = false;
 		}
 		var _gthis = this;
-		haxe_Log.trace("About to persist: " + (isNew == null ? "null" : "" + isNew) + " " + Std.string(this),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 102, className : "haxedb.storage.Book", methodName : "persist"});
+		haxedb_sys_System.log("About to persist: " + (isNew == null ? "null" : "" + isNew) + " " + Std.string(this));
 		return tink_core__$Future_Future_$Impl_$.async(function(done) {
-			haxe_Log.trace("System.library: " + Std.string(haxedb_sys_System.get_library()),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 104, className : "haxedb.storage.Book", methodName : "persist"});
+			haxedb_sys_System.log("System.library: " + Std.string(haxedb_sys_System.get_library()));
 			if(haxedb_sys_System.get_library() != null) {
 				if(isNew) {
 					_gthis.index.id = haxedb_sys_System.get_library().count();
@@ -579,14 +575,12 @@ haxedb_storage_Book.prototype = {
 				var future = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(false));
 				if(!_gthis.persisted && libRecord == null) {
 					haxedb_sys_System.log("Adding " + _gthis.get_dbFile() + " to library! " + Std.string(_gthis.index));
-					haxe_Log.trace("Adding " + _gthis.get_dbFile() + " to library",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 112, className : "haxedb.storage.Book", methodName : "persist"});
 					future = haxedb_sys_System.get_library().addRecord(new haxedb_record_Record(_gthis.index));
 					_gthis.persisted = true;
 				} else {
 					haxedb_sys_System.log("Updating " + _gthis.get_dbFile() + ": " + Std.string(_gthis.index) + "\nExisting Record: " + Std.string(libRecord) + "\n" + Std.string(haxedb_sys_System.get_library().getRecords(function(record) {
 						return true;
 					})));
-					haxe_Log.trace("Updating " + _gthis.get_dbFile() + " in library\nExisting Record: " + Std.string(libRecord),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 117, className : "haxedb.storage.Book", methodName : "persist"});
 					if(libRecord != null && libRecord.get_dbFile() == _gthis.get_dbFile()) {
 						future = haxedb_sys_System.get_library().updateRecord(function(record1) {
 							return record1.data.id == _gthis.index.id;
@@ -597,18 +591,14 @@ haxedb_storage_Book.prototype = {
 					future = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(true));
 				}
 				future.handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-					haxe_Log.trace("persisting records",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 124, className : "haxedb.storage.Book", methodName : "persist"});
+					haxedb_sys_System.log("persisting records");
 					return haxedb_sys_System.get_library().persistRecords().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-						haxe_Log.trace("Done persisting SUCCESS " + Std.string(_gthis) + "\n" + Std.string(haxedb_sys_System.get_library()) + "\n" + Std.string(haxedb_sys_System.get_library().getRecords(function(record2) {
-							return true;
-						})),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 126, className : "haxedb.storage.Book", methodName : "persist"});
 						done(true);
 						return tink_core_Noise.Noise;
 					}));
 				}));
 			} else {
 				done(true);
-				haxe_Log.trace("Done persisting book NO LIBRARY FOUND. " + Std.string(_gthis),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 133, className : "haxedb.storage.Book", methodName : "persist"});
 			}
 			return tink_core_Noise.Noise;
 		});
@@ -620,7 +610,6 @@ haxedb_storage_Book.prototype = {
 		var pageStart = pid * this.get_pageSize();
 		var incrementNumPages = false;
 		if(this.index.pages < pid) {
-			haxe_Log.trace("Saving " + Std.string({ data : page, string : page.string()}) + "\nin Book: " + Std.string(this.index),{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 147, className : "haxedb.storage.Book", methodName : "persistPage"});
 			incrementNumPages = true;
 		}
 		var _bytes = new haxe_io_Bytes(new ArrayBuffer(this.get_pageSize()));
@@ -657,14 +646,11 @@ haxedb_storage_Book.prototype = {
 					return tink_io__$Source_Source_$Impl_$.pipeTo(inputStream1,outputStream).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 						if(incrementNumPages) {
 							_gthis.index.pages++;
-							haxe_Log.trace("About to rewrite index",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 178, className : "haxedb.storage.Book", methodName : "persistPage"});
 							_gthis.writeIndexPage().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-								haxe_Log.trace("Done rewriting index.",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 181, className : "haxedb.storage.Book", methodName : "persistPage"});
 								cb(true);
 								return;
 							}));
 						} else {
-							haxe_Log.trace("Done, index unchanged.",{ fileName : "src/haxedb/storage/Book.hx", lineNumber : 185, className : "haxedb.storage.Book", methodName : "persistPage"});
 							cb(true);
 						}
 						return tink_core_Noise.Noise;
@@ -746,6 +732,8 @@ haxedb_sys_System.init = function() {
 				haxe_Log.trace("Persisting preface?",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 52, className : "haxedb.sys.System", methodName : "init"});
 				haxedb_sys_System.sysBook.persistPage(prefacePage);
 				done(true);
+			} else {
+				done(true);
 			}
 			return;
 		});
@@ -761,7 +749,7 @@ haxedb_sys_System.tryLoadFromFile = function() {
 		haxedb_sys_System.index = haxe_Unserializer.run(prefacePage.string());
 		haxedb_sys_System._library = haxedb_sys_books_Library.load(haxedb_sys_System.index.library);
 		haxedb_sys_System._collectionManager = haxedb_sys_collections_CollectionManager.load(haxedb_sys_System.index.collectionManager);
-		haxe_Log.trace("Loaded\n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._collectionManager),{ fileName : "src/haxedb/sys/System.hx", lineNumber : 72, className : "haxedb.sys.System", methodName : "tryLoadFromFile"});
+		haxe_Log.trace("Loaded\n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._collectionManager),{ fileName : "src/haxedb/sys/System.hx", lineNumber : 74, className : "haxedb.sys.System", methodName : "tryLoadFromFile"});
 		return true;
 	} else {
 		return false;

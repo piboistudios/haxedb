@@ -51,12 +51,11 @@ class Book {
 	public static function open(file = 'test') {
 		return Future.async((cb:Book->Void) -> {
 			System.log('--------------OPENING $file--------------');
-			trace('Opening $file');
 			var book = new Book();
 			book.index.blobFile = file;
 			book.init().handle(() -> {
 				cb(book);
-				trace('Book opened $book');
+				System.log('Book opened $book');
 			});
 		});
 	}
@@ -66,14 +65,14 @@ class Book {
 			var indexPage = readPage(0);
 			if (indexPage == null) {
 				writeIndexPage(true).handle((success:Bool) -> {
-					trace("Index written");
+					System.log('Index written $index');
 					done(success);
 				});
 			} else {
 				var indexData = indexPage.string();
 				if (indexData.length != 0) {
 					this.index = haxe.Unserializer.run(indexData);
-					trace('Index loaded $index');
+					System.log('Book loaded $index');
 				}
 				done(true);
 			}
@@ -87,11 +86,11 @@ class Book {
 			var serializer = new haxe.Serializer();
 			serializer.serialize(index);
 			indexPage.writeFromString(serializer.toString());
-			trace('index page: ${({id: indexPage.id(), content: indexPage.string(), expected: this.index})}');
+			// System.log('index page: ${({id: indexPage.id(), content: indexPage.string(), expected: this.index})}');
 			this.persistPage(indexPage).handle(() -> {
-				trace("Persisting book");
+				// System.log("Persisting book");
 				persist(isNew).handle(() -> {
-					trace("Book persisted to library");
+					// System.log("Book persisted to library");
 					done(true);
 				});
 			});
@@ -99,9 +98,9 @@ class Book {
 	}
 
 	function persist(isNew = false) {
-		trace('About to persist: $isNew $this');
+		System.log('About to persist: $isNew $this');
 		return Future.async((done:Bool->Void) -> {
-			trace('System.library: ${System.library}');
+			System.log('System.library: ${System.library}');
 			if (System.library != null) {
 				if (isNew)
 					this.index.id = System.library.count();
@@ -109,28 +108,28 @@ class Book {
 				var future = Future.sync(false);
 				if (!this.persisted && libRecord == null) {
 					System.log('Adding $dbFile to library! ${this.index}');
-					trace('Adding $dbFile to library');
+					// System.log('Adding $dbFile to library');
 					future = System.library.addRecord(new Record<BookRecord>(this.index));
 					this.persisted = true;
 				} else {
 					System.log('Updating $dbFile: ${this.index}\nExisting Record: $libRecord\n${System.library.getRecords(record -> true)}');
-					trace('Updating $dbFile in library\nExisting Record: $libRecord');
+					// System.log('Updating $dbFile in library\nExisting Record: $libRecord');
 					if (libRecord != null && libRecord.dbFile == this.dbFile)
 						future = System.library.updateRecord(record -> record.data.id == this.index.id, this.index);
 				}
 				if (future == null)
 					future = Future.sync(true);
 				future.handle(() -> {
-					trace("persisting records");
+					System.log("persisting records");
 					System.library.persistRecords().handle(() -> {
-						trace('Done persisting SUCCESS $this\n${System.library}\n${System.library.getRecords(record -> true)}');
+						// System.log('Done persisting SUCCESS $this\n${System.library}\n${System.library.getRecords(record -> true)}');
 						done(true);
 						return Noise;
 					});
 				});
 			} else {
 				done(true);
-				trace('Done persisting book NO LIBRARY FOUND. $this');
+				// System.log('Done persisting book NO LIBRARY FOUND. $this');
 			}
 			return Noise;
 		});
@@ -144,7 +143,7 @@ class Book {
 		var pageStart = pid * pageSize;
 		var incrementNumPages = false;
 		if (this.index.pages < pid) {
-			trace('Saving ${({data: page, string: page.string()})}\nin Book: ${this.index}');
+			// System.log('Saving ${({data: page, string: page.string()})}\nin Book: ${this.index}');
 			incrementNumPages = true;
 		}
 		var _bytes:Bytes = Bytes.alloc(pageSize);
@@ -156,7 +155,7 @@ class Book {
 				.handle(exists -> {
 					var doWrite = () -> {
 						var bytes = bOutput.getBytes();
-						// trace('prewrite file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
+						// System.log('prewrite file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
 						if (pageStart + pageBytes.length >= bytes.length) {
 							var length = (pageStart + pageBytes.length) - (bytes.length - 1);
 							var newBytes = Bytes.alloc(bytes.length + length);
@@ -171,22 +170,22 @@ class Book {
 						inputStream.pipeTo(outputStream)
 							.handle(() -> {
 								// outputStream.end()
-								// trace('\n------------------------------------------------------------------------------------------------------------------\n');
-								// trace('write file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
+								// System.log('\n------------------------------------------------------------------------------------------------------------------\n');
+								// System.log('write file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
 								if (incrementNumPages) {
 									this.index.pages++;
-									trace("About to rewrite index");
+									// System.log("About to rewrite index");
 									this.writeIndexPage()
 										.handle(() -> {
-											trace("Done rewriting index.");
+											// System.log("Done rewriting index.");
 											cb(true);
 										});
 								} else {
-									trace("Done, index unchanged.");
+									// System.log("Done, index unchanged.");
 									cb(true);
 								}
 								return Noise;
-								// trace('Done writing..?\nPage: ${({writeStart: pageStart, id: page.id(), content: page.string()})}');
+								// System.log('Done writing..?\nPage: ${({writeStart: pageStart, id: page.id(), content: page.string()})}');
 							});
 					}
 					if (exists) {

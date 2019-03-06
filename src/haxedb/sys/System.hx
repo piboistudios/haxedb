@@ -52,6 +52,8 @@ class System {
 					trace("Persisting preface?");
 					sysBook.persistPage(prefacePage);
 					done(true);
+				} else {
+					done(true);
 				}
 			});
 		});
