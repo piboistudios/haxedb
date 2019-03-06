@@ -6113,3 +6113,596 @@ Updating ./hscript-created-collection.db: {
 --------------------------------------END (2019-03-05 20:59:50)------------------------------------------
 --------------------------------------BOOT (2019-03-05 21:03:11)------------------------------------------
 --------------------------------------END (2019-03-05 21:03:31)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:16:29)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:18:13)------------------------------------------
+--------------------------------------END (2019-03-06 09:20:01)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:20:08)------------------------------------------
+--------------------------------------END (2019-03-06 09:20:28)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:20:32)------------------------------------------
+--------------------------------------END (2019-03-06 09:21:06)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:21:16)------------------------------------------
+--------------------------------------END (2019-03-06 09:21:56)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:22:00)------------------------------------------
+Updating ./marcone-customers.db: {
+	pageSize : 8000, 
+	id : 0, 
+	pages : 0, 
+	blobFile : marcone-customers
+}
+Adding ./marcone-customers.db to library! {
+	pageSize : 8000, 
+	id : 3, 
+	pages : 0, 
+	blobFile : marcone-customers
+}
+Updating ./marcone-customers.db: {
+	pageSize : 8000, 
+	id : 3, 
+	pages : 1, 
+	blobFile : marcone-customers
+}
+--------------------------------------BOOT (2019-03-06 09:26:22)------------------------------------------
+--------------------------------------END (2019-03-06 09:27:01)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:27:06)------------------------------------------
+Updating ./test-collection.db: {
+	pageSize : 8000, 
+	id : 0, 
+	pages : 0, 
+	blobFile : test-collection
+}
+Adding ./test-collection.db to library! {
+	pageSize : 8000, 
+	id : 4, 
+	pages : 0, 
+	blobFile : test-collection
+}
+Updating ./test-collection.db: {
+	pageSize : 8000, 
+	id : 4, 
+	pages : 1, 
+	blobFile : test-collection
+}
+--------------------------------------BOOT (2019-03-06 09:30:25)------------------------------------------
+--------------------------------------END (2019-03-06 09:31:52)------------------------------------------
+--------------------------------------BOOT (2019-03-06 09:32:42)------------------------------------------
+Updating ./new-collection.db: {
+	pageSize : 8000, 
+	id : 0, 
+	pages : 0, 
+	blobFile : new-collection
+}
+Adding ./new-collection.db to library! {
+	pageSize : 8000, 
+	id : 5, 
+	pages : 0, 
+	blobFile : new-collection
+}
+Updating ./new-collection.db: {
+	pageSize : 8000, 
+	id : 5, 
+	pages : 1, 
+	blobFile : new-collection
+}
+Updating ./new-collection.db: {
+	pageSize : 8000, 
+	id : 5, 
+	pages : 2, 
+	blobFile : new-collection
+}
+Updating ./new-collection.db: {
+	pageSize : 8000, 
+	id : 5, 
+	pages : 3, 
+	blobFile : new-collection
+}
+--------------------------------------BOOT (2019-03-06 09:39:53)------------------------------------------
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 0, 
+	pages : 0, 
+	blobFile : another-test-collection
+}
+Adding ./another-test-collection.db to library! {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 0, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 1, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 2, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 3, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 4, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 5, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 6, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 7, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 8, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 9, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 10, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 11, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 12, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 13, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 14, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 15, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 16, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 17, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 18, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 19, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 20, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 21, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 22, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 23, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 24, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 25, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 26, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 27, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 28, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 29, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 30, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 31, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 32, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 33, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 34, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 35, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 36, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 37, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 38, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 39, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 40, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 41, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 42, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 43, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 44, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 45, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 46, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 47, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 48, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 49, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 50, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 51, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 52, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 53, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 54, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 55, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 56, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 57, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 58, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 59, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 60, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 61, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 62, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 63, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 64, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 65, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 66, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 67, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 68, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 69, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 70, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 71, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 72, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 73, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 74, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 75, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 76, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 77, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 78, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 79, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 80, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 81, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 82, 
+	blobFile : another-test-collection
+}
+Updating ./another-test-collection.db: {
+	pageSize : 8000, 
+	id : 6, 
+	pages : 83, 
+	blobFile : another-test-collection
+}

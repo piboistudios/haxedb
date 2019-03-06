@@ -18,9 +18,12 @@ class Console {
 
 	static function init() {
 		System.init();
+		var dbApi:haxe.DynamicAccess<Dynamic> = new haxe.DynamicAccess<Dynamic>();
 		for (key in api.keys()) {
-			interp.variables.set(key, api[key]);
+			dbApi.set(key, api[key]);
 		}
+		trace('api: $dbApi');
+		interp.variables.set('db', dbApi);
 		printInstructions();
 	}
 
@@ -53,8 +56,14 @@ class Console {
 				if (input == '.exit') {
 					teardown();
 					rl.close();
+				
 					// return;
-				} else {
+				} 
+				else if(input == '.abort') {
+					scriptLines = [];
+					run();
+				}
+				else {
 					scriptLines.push(input);
 					run();
 				}
@@ -91,7 +100,8 @@ class Console {
 		},
 		'record' => (data:Dynamic) -> {
 			return new Record(data);
-		}
+		},
+		'persist' => interp.variables.set
 	];
 	static var apiDefinitions:Map<String, String> = [
 		'collection' => '(collectionName:String) -> Collection - Retrieves a collection by name; creates one if one doesn\'t exist',

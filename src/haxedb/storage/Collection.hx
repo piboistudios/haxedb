@@ -96,11 +96,44 @@ class Collection<T> {
 		}
 		return null;
 	}
+    public function addRecords(records:Array<Record<T>>) {
+        for(pageNo in this.index.pages) {
+            var page = this.getPage(pageNo);
+            if(page != null && page.addRecords(records)) {
+                this.dirtyPages.push(page.id());
+                this.persist();
+                return true;
+            }
+        }
+       try {
+			var newPage = new RecordsPage<T>(-1, this.book);
 
+			this.index.pages.push(newPage.id());
+			this.pages.set(newPage.id(), newPage);
+
+			if (this.book != null) {
+				var retVal = newPage.addRecords(records);
+                if(!retVal) {
+                    var bisection=Std.int(records.length / 2);
+                    var records1 = records.slice(0, bisection);
+                    var records2 = records.slice(bisection);
+                    return this.addRecords(records1) && this.addRecords(records2);
+                }
+				this.book.persistPage(newPage);
+				this.dirtyPages.push(newPage.id());
+				this.persist();
+				return retVal;
+			} else {
+				this.persist();
+				return newPage.addRecords(records);
+			}
+		} catch (ex:Dynamic) {
+			throw ex;
+		}
+    }
 	public function addRecord(record:Record<T>) {
 		for (pageNo in this.index.pages) {
 			var page = this.getPage(pageNo);
-			var pageInfo = page != null ? ({id: page.id(), content: page.string(), size: page.size()}) : null;
 			if (page != null && page.addRecord(record)) {
 				this.dirtyPages.push(page.id());
 				this.persist();

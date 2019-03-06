@@ -265,6 +265,49 @@ haxedb_storage_Collection.prototype = {
 		}
 		return null;
 	}
+	,addRecords: function(records) {
+		var _g = 0;
+		var _g1 = this.index.pages;
+		while(_g < _g1.length) {
+			var pageNo = _g1[_g];
+			++_g;
+			var page = this.getPage(pageNo);
+			if(page != null && page.addRecords(records)) {
+				this.dirtyPages.push(page.id());
+				this.persist();
+				return true;
+			}
+		}
+		try {
+			var newPage = new haxedb_storage_RecordsPage(-1,this.book);
+			this.index.pages.push(newPage.id());
+			var this1 = this.pages;
+			var key = newPage.id();
+			this1.h[key] = newPage;
+			if(this.book != null) {
+				var retVal = newPage.addRecords(records);
+				if(!retVal) {
+					var bisection = records.length / 2 | 0;
+					var records1 = records.slice(0,bisection);
+					var records2 = records.slice(bisection);
+					if(this.addRecords(records1)) {
+						return this.addRecords(records2);
+					} else {
+						return false;
+					}
+				}
+				this.book.persistPage(newPage);
+				this.dirtyPages.push(newPage.id());
+				this.persist();
+				return retVal;
+			} else {
+				this.persist();
+				return newPage.addRecords(records);
+			}
+		} catch( ex ) {
+			throw js__$Boot_HaxeError.wrap(((ex) instanceof js__$Boot_HaxeError) ? ex.val : ex);
+		}
+	}
 	,addRecord: function(record) {
 		var _g = 0;
 		var _g1 = this.index.pages;
@@ -272,7 +315,6 @@ haxedb_storage_Collection.prototype = {
 			var pageNo = _g1[_g];
 			++_g;
 			var page = this.getPage(pageNo);
-			var pageInfo = page != null ? { id : page.id(), content : page.string(), size : page.size()} : null;
 			if(page != null && page.addRecord(record)) {
 				this.dirtyPages.push(page.id());
 				this.persist();
@@ -4294,28 +4336,31 @@ Console.main = function() {
 };
 Console.init = function() {
 	haxedb_sys_System.init();
+	var this1 = { };
+	var dbApi = this1;
 	var key = Console.api.keys();
 	while(key.hasNext()) {
 		var key1 = key.next();
 		var _this = Console.api;
-		var _this1 = Console.interp.variables;
-		var value = __map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1];
-		if(__map_reserved[key1] != null) {
-			_this1.setReserved(key1,value);
-		} else {
-			_this1.h[key1] = value;
-		}
+		dbApi[key1] = __map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1];
+	}
+	haxe_Log.trace("api: " + Std.string(dbApi),{ fileName : "src/Console.hx", lineNumber : 25, className : "Console", methodName : "init"});
+	var _this1 = Console.interp.variables;
+	if(__map_reserved["db"] != null) {
+		_this1.setReserved("db",dbApi);
+	} else {
+		_this1.h["db"] = dbApi;
 	}
 	Console.printInstructions();
 };
 Console.printInstructions = function() {
-	haxe_Log.trace("API:",{ fileName : "src/Console.hx", lineNumber : 28, className : "Console", methodName : "printInstructions"});
-	haxe_Log.trace("_________",{ fileName : "src/Console.hx", lineNumber : 29, className : "Console", methodName : "printInstructions"});
+	haxe_Log.trace("API:",{ fileName : "src/Console.hx", lineNumber : 31, className : "Console", methodName : "printInstructions"});
+	haxe_Log.trace("_________",{ fileName : "src/Console.hx", lineNumber : 32, className : "Console", methodName : "printInstructions"});
 	var key = Console.apiDefinitions.keys();
 	while(key.hasNext()) {
 		var key1 = key.next();
 		var _this = Console.apiDefinitions;
-		haxe_Log.trace("" + key1 + " - " + (__map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1]),{ fileName : "src/Console.hx", lineNumber : 31, className : "Console", methodName : "printInstructions"});
+		haxe_Log.trace("" + key1 + " - " + (__map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1]),{ fileName : "src/Console.hx", lineNumber : 34, className : "Console", methodName : "printInstructions"});
 	}
 };
 Console.teardown = function() {
@@ -4331,6 +4376,9 @@ Console.run = function() {
 			if(input == ".exit") {
 				Console.teardown();
 				Console.rl.close();
+			} else if(input == ".abort") {
+				Console.scriptLines = [];
+				Console.run();
 			} else {
 				Console.scriptLines.push(input);
 				Console.run();
@@ -4338,11 +4386,11 @@ Console.run = function() {
 		} else {
 			var script = Console.scriptLines.join("\n");
 			try {
-				haxe_Log.trace("script: " + script,{ fileName : "src/Console.hx", lineNumber : 64, className : "Console", methodName : "run"});
+				haxe_Log.trace("script: " + script,{ fileName : "src/Console.hx", lineNumber : 73, className : "Console", methodName : "run"});
 				var ast = Console.parser.parseString(script);
-				haxe_Log.trace(Console.interp.execute(ast),{ fileName : "src/Console.hx", lineNumber : 66, className : "Console", methodName : "run"});
+				haxe_Log.trace(Console.interp.execute(ast),{ fileName : "src/Console.hx", lineNumber : 75, className : "Console", methodName : "run"});
 			} catch( error ) {
-				haxe_Log.trace("ERROR: " + Std.string(((error) instanceof js__$Boot_HaxeError) ? error.val : error),{ fileName : "src/Console.hx", lineNumber : 68, className : "Console", methodName : "run"});
+				haxe_Log.trace("ERROR: " + Std.string(((error) instanceof js__$Boot_HaxeError) ? error.val : error),{ fileName : "src/Console.hx", lineNumber : 77, className : "Console", methodName : "run"});
 			}
 			Console.scriptLines = [];
 			Console.run();
@@ -6135,6 +6183,22 @@ haxedb_storage_RecordsPage.prototype = $extend(haxedb_storage_Page.prototype,{
 		records.push(record);
 		return this.writeFromRecords(records);
 	}
+	,addRecords: function(incomingRecords) {
+		var _gthis = this;
+		var records = this.records();
+		var addRecord = function(record) {
+			record.location.pageNo = _gthis.header.id;
+			record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
+			return records.push(record);
+		};
+		var _g = 0;
+		while(_g < incomingRecords.length) {
+			var record1 = incomingRecords[_g];
+			++_g;
+			addRecord(record1);
+		}
+		return this.writeFromRecords(records);
+	}
 	,updateRecord: function(predicate,value) {
 		var records = this.records();
 		var recordToReplace = Lambda.find(records,predicate);
@@ -6881,6 +6945,22 @@ Console.api = (function($this) {
 			_g.setReserved("record",value1);
 		} else {
 			_g.h["record"] = value1;
+		}
+	}
+	{
+		var _e = Console.interp.variables;
+		var value2 = function(key,value3) {
+			var value4 = value3;
+			if(__map_reserved[key] != null) {
+				_e.setReserved(key,value4);
+			} else {
+				_e.h[key] = value4;
+			}
+		};
+		if(__map_reserved["persist"] != null) {
+			_g.setReserved("persist",value2);
+		} else {
+			_g.h["persist"] = value2;
 		}
 	}
 	$r = _g;

@@ -8,7 +8,6 @@ import haxedb.record.Record;
 class RecordsPage<T> extends Page {
 	public function new(id = -1, book:Book = null) {
 		super(id, book);
-	
 	}
 
 	public function records():Array<Record<T>> {
@@ -22,6 +21,19 @@ class RecordsPage<T> extends Page {
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 		records.push(record);
 		return this.writeFromRecords(records);
+	}
+
+	public function addRecords(incomingRecords:Array<Record<T>>) {
+		var records = this.records();
+		var addRecord = (record:Record<T>) -> {
+			record.location.pageNo = this.header.id;
+			record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
+			records.push(record);
+		};
+        for(record in incomingRecords) {
+            addRecord(record);
+        }
+        return this.writeFromRecords(records);
 	}
 
 	public function updateRecord(predicate:Record<T>->Bool, value:T) {
