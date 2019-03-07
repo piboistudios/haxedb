@@ -14,7 +14,6 @@ import tink.CoreApi;
 class Console {
 	public static function main() {
 		init();
-		run();
 	}
 
 	static function init() {
@@ -25,7 +24,7 @@ class Console {
 			trace("Ready");
 			configureApi(dbApi, 'db');
 			configureApi(sessionApi, 'session');
-			printInstructions();
+			begin();
 
 			return Noise;
 		});
@@ -39,12 +38,13 @@ class Console {
 		interp.variables.set(name, api);
 	}
 
-	static function printInstructions() {
+	static function begin() {
 		trace("API:");
 		trace("_________");
 		for (key in apiDefinitions.keys()) {
 			trace('$key - ${apiDefinitions[key]}');
 		}
+		run();
 	}
 
 	static function teardown() {

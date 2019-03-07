@@ -482,7 +482,9 @@ tink_core__$Callback_Callback_$Impl_$.defer = function(f) {
 };
 var haxedb_storage_Book = function() {
 	this.persisted = false;
+	this.locked = false;
 	this.index = new haxedb_record_books_BookRecord();
+	this.queue = [];
 };
 $hxClasses["haxedb.storage.Book"] = haxedb_storage_Book;
 haxedb_storage_Book.__name__ = "haxedb.storage.Book";
@@ -500,16 +502,62 @@ haxedb_storage_Book.open = function(file) {
 		haxedb_sys_System.log("--------------OPENING " + file + "--------------");
 		var book = new haxedb_storage_Book();
 		book.index.blobFile = file;
-		return book.init().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-			cb(book);
-			haxedb_sys_System.log("Book opened " + Std.string(book));
-			return;
-		}));
+		var _this = haxedb_storage_Book.openBooks;
+		if(__map_reserved[file] != null ? _this.existsReserved(file) : _this.h.hasOwnProperty(file)) {
+			haxedb_sys_System.log("Pulling bookmark " + Std.string(book));
+			var _this1 = haxedb_storage_Book.openBooks;
+			var tmp = __map_reserved[file] != null ? _this1.getReserved(file) : _this1.h[file];
+			cb(tmp);
+			return tink_core_Noise.Noise;
+		} else {
+			book.init().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+				var _this2 = haxedb_storage_Book.openBooks;
+				if(__map_reserved[file] != null) {
+					_this2.setReserved(file,book);
+				} else {
+					_this2.h[file] = book;
+				}
+				cb(book);
+				haxedb_sys_System.log("Book opened " + Std.string(book));
+				return;
+			}));
+			return tink_core_Noise.Noise;
+		}
 	});
 };
 haxedb_storage_Book.prototype = {
 	get_dbFile: function() {
 		return "./" + this.index.blobFile + ".db";
+	}
+	,lock: function(jumpQueue) {
+		if(jumpQueue == null) {
+			jumpQueue = false;
+		}
+		if(!this.locked) {
+			haxedb_sys_System.log("" + haxedb_storage_Book.d + "acquiring lock for  " + this.get_dbFile() + haxedb_storage_Book.d);
+			this.locked = true;
+			this.locked = true;
+			return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Noise.Noise));
+		} else {
+			haxedb_sys_System.log("" + haxedb_storage_Book.d + "queueing write to " + this.get_dbFile() + haxedb_storage_Book.d);
+			var trigger = new tink_core_FutureTrigger();
+			if(!jumpQueue) {
+				this.queue.push(trigger);
+			} else {
+				this.queue.splice(0,0,trigger);
+			}
+			return trigger;
+		}
+	}
+	,unlock: function() {
+		if(this.queue.length != 0) {
+			haxedb_sys_System.log("" + haxedb_storage_Book.d + "releasing lock for " + this.get_dbFile() + " (" + this.queue.length + ")" + haxedb_storage_Book.d);
+			var next = this.queue.splice(0,1)[0];
+			next.trigger(tink_core_Noise.Noise);
+		} else {
+			haxedb_sys_System.log("" + haxedb_storage_Book.d + "write queue emptied for " + this.get_dbFile() + haxedb_storage_Book.d);
+			this.locked = false;
+		}
 	}
 	,get_id: function() {
 		return this.index.id;
@@ -547,20 +595,23 @@ haxedb_storage_Book.prototype = {
 			isNew = false;
 		}
 		var _gthis = this;
+		if(isNew && haxedb_sys_System.get_library() != null) {
+			this.index.id = haxedb_sys_System.get_library().count();
+		}
 		return tink_core__$Future_Future_$Impl_$.async(function(done) {
 			var indexPage = new haxedb_storage_Page(0,_gthis);
 			var serializer = new haxe_Serializer();
-			if(isNew && haxedb_sys_System.get_library() != null) {
-				_gthis.index.id = haxedb_sys_System.get_library().count();
-			}
+			haxedb_sys_System.log("{  file: " + _gthis.get_dbFile() + "\n  isNew: " + (isNew == null ? "null" : "" + isNew) + "\n  Library: " + Std.string(haxedb_sys_System.get_library()) + "\n}");
 			serializer.serialize(_gthis.index);
 			indexPage.writeFromString(serializer.toString());
-			return _gthis.persistPage(indexPage).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+			_gthis.persistPage(indexPage,true).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 				return _gthis.persist(isNew).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 					done(true);
 					return;
 				}));
 			}));
+			_gthis.unlock();
+			return;
 		});
 	}
 	,persist: function(isNew) {
@@ -570,7 +621,7 @@ haxedb_storage_Book.prototype = {
 		var _gthis = this;
 		haxedb_sys_System.log("About to persist: " + (isNew == null ? "null" : "" + isNew) + " " + Std.string(this));
 		return tink_core__$Future_Future_$Impl_$.async(function(done) {
-			haxedb_sys_System.log("System.library: " + Std.string(haxedb_sys_System.get_library()));
+			haxedb_sys_System.log("Persisting System.library: " + Std.string(haxedb_sys_System.get_library()));
 			if(haxedb_sys_System.get_library() != null) {
 				var libRecord = haxedb_sys_System.get_library().getById(_gthis.index.id);
 				var future = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(false));
@@ -592,7 +643,7 @@ haxedb_storage_Book.prototype = {
 					future = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(true));
 				}
 				future.handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-					haxedb_sys_System.log("persisting records");
+					haxedb_sys_System.log("Persisting library records");
 					return haxedb_sys_System.get_library().persistRecords().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 						done(true);
 						return tink_core_Noise.Noise;
@@ -604,68 +655,80 @@ haxedb_storage_Book.prototype = {
 			return tink_core_Noise.Noise;
 		});
 	}
-	,persistPage: function(page) {
-		var _gthis = this;
-		var pageBytes = page.toBytes();
-		var pid = page.id();
-		var pageStart = pid * this.get_pageSize();
-		var incrementNumPages = false;
-		if(this.index.pages < pid) {
-			incrementNumPages = true;
+	,persistPage: function(page,jumpQueue) {
+		if(jumpQueue == null) {
+			jumpQueue = false;
 		}
-		var _bytes = new haxe_io_Bytes(new ArrayBuffer(this.get_pageSize()));
-		var bOutput = new haxe_io_BytesOutput();
-		var byteSink = tink_io__$Sink_SinkYielding_$Impl_$.ofOutput("Book.persistPage: empty byte array",bOutput);
+		var _gthis = this;
 		return tink_core__$Future_Future_$Impl_$.async(function(cb) {
-			return asys_FileSystem.exists(_gthis.get_dbFile()).handle(function(exists) {
-				var doWrite = function() {
-					var bytes = bOutput.getBytes();
-					if(pageStart + pageBytes.length >= bytes.length) {
-						var length = pageStart + pageBytes.length - (bytes.length - 1);
-						var newBytes = new haxe_io_Bytes(new ArrayBuffer(bytes.length + length));
-						newBytes.blit(0,bytes,0,bytes.length);
-						bytes = newBytes;
-					}
-					var pageSize = pageBytes.length;
-					bytes.blit(pageStart,pageBytes,0,pageSize);
-					var input = new haxe_io_BytesInput(bytes);
-					var options = null;
-					if(options == null) {
-						options = { };
-					}
-					var inputStream = tink_io__$Worker_Worker_$Impl_$.ensure(options.worker);
-					var length1;
-					var _g = options.chunkSize;
-					if(_g == null) {
-						length1 = 65536;
-					} else {
-						var v = _g;
-						length1 = v;
-					}
-					var inputStream1 = new tink_io_std_InputSource("Book.persistPage: loaded byte array",input,inputStream,new haxe_io_Bytes(new ArrayBuffer(length1)),0);
-					var outputStream = asys_io_File.writeStream(_gthis.get_dbFile(),true);
-					return tink_io__$Source_Source_$Impl_$.pipeTo(inputStream1,outputStream).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-						if(incrementNumPages) {
-							_gthis.index.pages++;
-							_gthis.writeIndexPage().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-								cb(true);
-								return;
-							}));
-						} else {
-							cb(true);
-						}
-						return tink_core_Noise.Noise;
-					}));
-				};
-				if(exists) {
-					var fileStream = asys_io_File.readStream(_gthis.get_dbFile(),true);
-					return tink_io__$Source_Source_$Impl_$.pipeTo(fileStream,byteSink).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-						return doWrite();
-					}));
-				} else {
-					return doWrite();
+			var done = function(bool) {
+				_gthis.unlock();
+				cb(bool);
+				return;
+			};
+			haxedb_sys_System.log("Preparing to write " + Std.string(page));
+			return _gthis.lock(jumpQueue).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+				haxedb_sys_System.log("Lock acquired, beginning to write " + Std.string(page));
+				var pageBytes = page.toBytes();
+				var pid = page.id();
+				var pageStart = pid * _gthis.get_pageSize();
+				var incrementNumPages = false;
+				if(_gthis.index.pages < pid) {
+					incrementNumPages = true;
 				}
-			});
+				var _bytes = new haxe_io_Bytes(new ArrayBuffer(_gthis.get_pageSize()));
+				var bOutput = new haxe_io_BytesOutput();
+				var byteSink = tink_io__$Sink_SinkYielding_$Impl_$.ofOutput("Book.persistPage: empty byte array",bOutput);
+				return asys_FileSystem.exists(_gthis.get_dbFile()).handle(function(exists) {
+					var doWrite = function() {
+						var bytes = bOutput.getBytes();
+						if(pageStart + pageBytes.length >= bytes.length) {
+							var length = pageStart + pageBytes.length - (bytes.length - 1);
+							var newBytes = new haxe_io_Bytes(new ArrayBuffer(bytes.length + length));
+							newBytes.blit(0,bytes,0,bytes.length);
+							bytes = newBytes;
+						}
+						var pageSize = pageBytes.length;
+						bytes.blit(pageStart,pageBytes,0,pageSize);
+						var input = new haxe_io_BytesInput(bytes);
+						var options = null;
+						if(options == null) {
+							options = { };
+						}
+						var inputStream = tink_io__$Worker_Worker_$Impl_$.ensure(options.worker);
+						var length1;
+						var _g = options.chunkSize;
+						if(_g == null) {
+							length1 = 65536;
+						} else {
+							var v = _g;
+							length1 = v;
+						}
+						var inputStream1 = new tink_io_std_InputSource("Book.persistPage: loaded byte array",input,inputStream,new haxe_io_Bytes(new ArrayBuffer(length1)),0);
+						var outputStream = asys_io_File.writeStream(_gthis.get_dbFile(),true);
+						return tink_io__$Source_Source_$Impl_$.pipeTo(inputStream1,outputStream).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+							if(incrementNumPages) {
+								_gthis.index.pages++;
+								_gthis.writeIndexPage().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+									done(true);
+									return;
+								}));
+							} else {
+								done(true);
+							}
+							return tink_core_Noise.Noise;
+						}));
+					};
+					if(exists) {
+						var fileStream = asys_io_File.readStream(_gthis.get_dbFile(),true);
+						return tink_io__$Source_Source_$Impl_$.pipeTo(fileStream,byteSink).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+							return doWrite();
+						}));
+					} else {
+						return doWrite();
+					}
+				});
+			}));
 		});
 	}
 	,readPage: function(id) {
@@ -721,7 +784,7 @@ haxedb_sys_System.init = function() {
 		haxe_Log.trace("Open System Book",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 40, className : "haxedb.sys.System", methodName : "init"});
 		return haxedb_storage_Book.open("sys").handle(function(system) {
 			haxedb_sys_System.sysBook = system;
-			haxe_Log.trace("Got system book? " + Std.string(haxedb_sys_System.sysBook),{ fileName : "src/haxedb/sys/System.hx", lineNumber : 43, className : "haxedb.sys.System", methodName : "init"});
+			haxe_Log.trace("Got system book? " + Std.string(haxedb_sys_System.sysBook),{ fileName : "src/haxedb/sys/System.hx", lineNumber : 44, className : "haxedb.sys.System", methodName : "init"});
 			if(!haxedb_sys_System.tryLoadFromFile()) {
 				haxedb_sys_System.index = new haxedb_sys_SysIndex();
 				var library = new haxedb_sys_books_Library(haxedb_sys_System.sysBook);
@@ -730,13 +793,23 @@ haxedb_sys_System.init = function() {
 				haxedb_sys_System.index.library = library.index;
 				haxedb_sys_System.index.collectionManager = collectionManager.index;
 				prefacePage.writeFromString(haxe_Serializer.run(haxedb_sys_System.index));
-				haxe_Log.trace("Persisting preface?",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 52, className : "haxedb.sys.System", methodName : "init"});
-				haxedb_sys_System.sysBook.persistPage(prefacePage);
-				done(true);
+				haxe_Log.trace("Persisting preface?",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 53, className : "haxedb.sys.System", methodName : "init"});
+				haxedb_sys_System.sysBook.persistPage(prefacePage).handle(function(_) {
+					return library.addRecord(new haxedb_record_Record(haxedb_sys_System.sysBook.index)).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+						return library.persist().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+							haxedb_sys_System.log("INIT: Library: " + Std.string(library) + "\nRecords: " + Std.string(library.getRecords(function(r) {
+								return true;
+							})));
+							done(true);
+							return tink_core_Noise.Noise;
+						}));
+					}));
+				});
+				return tink_core_Noise.Noise;
 			} else {
 				done(true);
+				return tink_core_Noise.Noise;
 			}
-			return;
 		});
 	});
 };
@@ -767,7 +840,7 @@ haxedb_sys_System.teardown = function() {
 		return haxedb_sys_System.get_library().persist().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 			newIndex.library = haxedb_sys_System.get_library().index;
 			newIndex.collectionManager = haxedb_sys_System.get_collectionManager().index;
-			haxe_Log.trace("Shutting down.",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 91, className : "haxedb.sys.System", methodName : "teardown"});
+			haxe_Log.trace("Shutting down.",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 104, className : "haxedb.sys.System", methodName : "teardown"});
 			haxedb_sys_System.log("Close Status: \n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._library.getRecords(function(record) {
 				return true;
 			})) + "\n" + Std.string(haxedb_sys_System._collectionManager) + "\n" + Std.string(haxedb_sys_System._collectionManager.getRecords(function(record1) {
@@ -5012,17 +5085,16 @@ $hxClasses["Console"] = Console;
 Console.__name__ = "Console";
 Console.main = function() {
 	Console.init();
-	Console.run();
 };
 Console.init = function() {
 	tink_core__$Future_Future_$Impl_$.next(haxedb_sys_System.init(),function(success) {
 		if(success) {
-			haxe_Log.trace("System successfully initialized.",{ fileName : "src/Console.hx", lineNumber : 23, className : "Console", methodName : "init"});
+			haxe_Log.trace("System successfully initialized.",{ fileName : "src/Console.hx", lineNumber : 22, className : "Console", methodName : "init"});
 		}
-		haxe_Log.trace("Ready",{ fileName : "src/Console.hx", lineNumber : 25, className : "Console", methodName : "init"});
+		haxe_Log.trace("Ready",{ fileName : "src/Console.hx", lineNumber : 24, className : "Console", methodName : "init"});
 		Console.configureApi(Console.dbApi,"db");
 		Console.configureApi(Console.sessionApi,"session");
-		Console.printInstructions();
+		Console.begin();
 		return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 	});
 };
@@ -5041,15 +5113,16 @@ Console.configureApi = function(apiMap,name) {
 		_this.h[name] = api;
 	}
 };
-Console.printInstructions = function() {
-	haxe_Log.trace("API:",{ fileName : "src/Console.hx", lineNumber : 43, className : "Console", methodName : "printInstructions"});
-	haxe_Log.trace("_________",{ fileName : "src/Console.hx", lineNumber : 44, className : "Console", methodName : "printInstructions"});
+Console.begin = function() {
+	haxe_Log.trace("API:",{ fileName : "src/Console.hx", lineNumber : 42, className : "Console", methodName : "begin"});
+	haxe_Log.trace("_________",{ fileName : "src/Console.hx", lineNumber : 43, className : "Console", methodName : "begin"});
 	var key = Console.apiDefinitions.keys();
 	while(key.hasNext()) {
 		var key1 = key.next();
 		var _this = Console.apiDefinitions;
-		haxe_Log.trace("" + key1 + " - " + (__map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1]),{ fileName : "src/Console.hx", lineNumber : 46, className : "Console", methodName : "printInstructions"});
+		haxe_Log.trace("" + key1 + " - " + (__map_reserved[key1] != null ? _this.getReserved(key1) : _this.h[key1]),{ fileName : "src/Console.hx", lineNumber : 45, className : "Console", methodName : "begin"});
 	}
+	Console.run();
 };
 Console.teardown = function() {
 	haxedb_sys_System.teardown();
@@ -12279,6 +12352,8 @@ tink_core__$Future_Future_$Impl_$.NOISE = new tink_core__$Future_SyncFuture(new 
 tink_core__$Future_Future_$Impl_$.NEVER = tink_core__$Future_NeverFuture.inst;
 tink_core__$Callback_Callback_$Impl_$.depth = 0;
 tink_core__$Callback_Callback_$Impl_$.MAX_DEPTH = 1000;
+haxedb_storage_Book.openBooks = new haxe_ds_StringMap();
+haxedb_storage_Book.d = "---------";
 haxedb_sys_System.collectionsInitialized = false;
 js_Boot.__toStr = ({ }).toString;
 hscript_Parser.p1 = 0;

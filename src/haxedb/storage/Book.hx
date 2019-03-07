@@ -1,5 +1,7 @@
 package haxedb.storage;
 
+using Lambda;
+
 import tink.io.Source;
 import tink.io.Sink;
 import haxedb.record.books.BookRecord;
@@ -19,10 +21,45 @@ class Book {
 	public var pageSize(get, null):Int;
 	public var dbFile(get, never):String;
 
+	var locked:Bool = false;
+	var queue:Array<FutureTrigger<Noise>>;
 	var persisted = false;
+
+	static var openBooks:Map<String, Book> = new Map<String, Book>();
 
 	function get_dbFile() {
 		return './${this.index.blobFile}.db';
+	}
+
+	static var d = '---------';
+
+	function lock(jumpQueue = false) {
+		if (!this.locked) {
+			System.log('${d}acquiring lock for  $dbFile$d');
+			this.locked = true;
+			this.locked = true;
+			return Future.sync(Noise);
+		} else {
+			System.log('${d}queueing write to $dbFile$d');
+			var trigger = Future.trigger();
+			if (!jumpQueue)
+				queue.push(trigger);
+			else
+				queue.insert(0, trigger);
+			return trigger.asFuture();
+		}
+	}
+
+	function unlock() {
+		if (queue.length != 0) {
+			System.log('${d}releasing lock for $dbFile (${queue.length})$d');
+
+			var next = queue.splice(0, 1)[0];
+			next.trigger(Noise);
+		} else {
+			System.log('${d}write queue emptied for $dbFile$d');
+			this.locked = false;
+		}
 	}
 
 	public function get_id() {
@@ -39,6 +76,7 @@ class Book {
 
 	public function new() {
 		this.index = new BookRecord();
+		this.queue = [];
 	}
 
 	public static function fromIndex(index:BookRecord) {
@@ -53,10 +91,18 @@ class Book {
 			System.log('--------------OPENING $file--------------');
 			var book = new Book();
 			book.index.blobFile = file;
-			book.init().handle(() -> {
-				cb(book);
-				System.log('Book opened $book');
-			});
+			if (openBooks.exists(file)) {
+				System.log('Pulling bookmark $book');
+				cb(openBooks[file]);
+				return Noise;
+			} else {
+				book.init().handle(() -> {
+					openBooks.set(file, book);
+					cb(book);
+					System.log('Book opened $book');
+				});
+				return Noise;
+			}
 		});
 	}
 
@@ -82,28 +128,32 @@ class Book {
 	}
 
 	function writeIndexPage(isNew = false):Future<Bool> {
+		if (isNew && System.library != null)
+			this.index.id = System.library.count();
 		return Future.async((done:Bool->Void) -> {
 			var indexPage = new Page(0, this);
 			var serializer = new haxe.Serializer();
-			if (isNew && System.library != null)
-				this.index.id = System.library.count();
+			System.log('{  file: $dbFile\n  isNew: $isNew\n  Library: ${System.library}\n}');
+
 			serializer.serialize(index);
 			indexPage.writeFromString(serializer.toString());
 			// System.log('index page: ${({id: indexPage.id(), content: indexPage.string(), expected: this.index})}');
-			this.persistPage(indexPage).handle(() -> {
+
+			this.persistPage(indexPage, true).handle(() -> {
 				// System.log("Persisting book");
 				persist(isNew).handle(() -> {
 					// System.log("Book persisted to library");
 					done(true);
 				});
 			});
+			this.unlock();
 		});
 	}
 
 	function persist(isNew = false) {
 		System.log('About to persist: $isNew $this');
 		return Future.async((done:Bool->Void) -> {
-			System.log('System.library: ${System.library}');
+			System.log('Persisting System.library: ${System.library}');
 			if (System.library != null) {
 				var libRecord = System.library.getById(this.index.id);
 				var future = Future.sync(false);
@@ -121,7 +171,7 @@ class Book {
 				if (future == null)
 					future = Future.sync(true);
 				future.handle(() -> {
-					System.log("persisting records");
+					System.log("Persisting library records");
 					System.library.persistRecords().handle(() -> {
 						// System.log('Done persisting SUCCESS $this\n${System.library}\n${System.library.getRecords(record -> true)}');
 						done(true);
@@ -138,65 +188,73 @@ class Book {
 
 	// 	this.pages.push(page);
 	// }
-	public function persistPage(page:Page):Future<Bool> {
-		var pageBytes = page.toBytes();
-		var pid = page.id();
-		var pageStart = pid * pageSize;
-		var incrementNumPages = false;
-		if (this.index.pages < pid) {
-			// System.log('Saving ${({data: page, string: page.string()})}\nin Book: ${this.index}');
-			incrementNumPages = true;
-		}
-		var _bytes:Bytes = Bytes.alloc(pageSize);
-		var bOutput = new BytesOutput();
-
-		var byteSink = Sink.ofOutput('Book.persistPage: empty byte array', bOutput);
+	public function persistPage(page:Page, jumpQueue = false):Future<Bool> {
 		return Future.async((cb:Bool->Void) -> {
-			asys.FileSystem.exists(this.dbFile)
-				.handle(exists -> {
-					var doWrite = () -> {
-						var bytes = bOutput.getBytes();
-						// System.log('prewrite file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
-						if (pageStart + pageBytes.length >= bytes.length) {
-							var length = (pageStart + pageBytes.length) - (bytes.length - 1);
-							var newBytes = Bytes.alloc(bytes.length + length);
-							newBytes.blit(0, bytes, 0, bytes.length);
-							bytes = newBytes;
-						}
-						var pageSize = pageBytes.length;
-						bytes.blit(pageStart, pageBytes, 0, pageSize);
+			var done = (bool) -> {
+				unlock();
+				cb(bool);
+			}
+			System.log('Preparing to write $page');
+			lock(jumpQueue).handle(() -> {
+				System.log('Lock acquired, beginning to write $page');
+				var pageBytes = page.toBytes();
+				var pid = page.id();
+				var pageStart = pid * pageSize;
+				var incrementNumPages = false;
+				if (this.index.pages < pid) {
+					// System.log('Saving ${({data: page, string: page.string()})}\nin Book: ${this.index}');
+					incrementNumPages = true;
+				}
+				var _bytes:Bytes = Bytes.alloc(pageSize);
+				var bOutput = new BytesOutput();
 
-						var inputStream = Source.ofInput('Book.persistPage: loaded byte array', new BytesInput(bytes));
-						var outputStream = File.writeStream(this.dbFile, true);
-						inputStream.pipeTo(outputStream)
-							.handle(() -> {
-								// outputStream.end()
-								// System.log('\n------------------------------------------------------------------------------------------------------------------\n');
-								// System.log('write file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
-								if (incrementNumPages) {
-									this.index.pages++;
-									// System.log("About to rewrite index");
-									this.writeIndexPage()
-										.handle(() -> {
-											// System.log("Done rewriting index.");
-											cb(true);
-										});
-								} else {
-									// System.log("Done, index unchanged.");
-									cb(true);
-								}
-								return Noise;
-								// System.log('Done writing..?\nPage: ${({writeStart: pageStart, id: page.id(), content: page.string()})}');
-							});
-					}
-					if (exists) {
-						var fileStream = File.readStream(this.dbFile, true);
-						fileStream.pipeTo(byteSink)
-							.handle(() -> doWrite());
-					} else {
-						doWrite();
-					}
-				});
+				var byteSink = Sink.ofOutput('Book.persistPage: empty byte array', bOutput);
+
+				asys.FileSystem.exists(this.dbFile)
+					.handle(exists -> {
+						var doWrite = () -> {
+							var bytes = bOutput.getBytes();
+							// System.log('prewrite file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
+							if (pageStart + pageBytes.length >= bytes.length) {
+								var length = (pageStart + pageBytes.length) - (bytes.length - 1);
+								var newBytes = Bytes.alloc(bytes.length + length);
+								newBytes.blit(0, bytes, 0, bytes.length);
+								bytes = newBytes;
+							}
+							var pageSize = pageBytes.length;
+							bytes.blit(pageStart, pageBytes, 0, pageSize);
+
+							var inputStream = Source.ofInput('Book.persistPage: loaded byte array', new BytesInput(bytes));
+							var outputStream = File.writeStream(this.dbFile, true);
+							inputStream.pipeTo(outputStream)
+								.handle(() -> {
+									// outputStream.end()
+									// System.log('\n------------------------------------------------------------------------------------------------------------------\n');
+									// System.log('write file-bytes: ${bytes.getString(0, bytes.length, haxe.io.Encoding.RawNative)}');
+									if (incrementNumPages) {
+										this.index.pages++;
+										// System.log("About to rewrite index");
+										this.writeIndexPage()
+											.handle(() -> {
+												done(true);
+											}); // System.log("Done rewriting index.");
+									} else {
+										// System.log("Done, index unchanged.");
+										done(true);
+									}
+									return Noise;
+									// System.log('Done writing..?\nPage: ${({writeStart: pageStart, id: page.id(), content: page.string()})}');
+								});
+						}
+						if (exists) {
+							var fileStream = File.readStream(this.dbFile, true);
+							fileStream.pipeTo(byteSink)
+								.handle(() -> doWrite());
+						} else {
+							doWrite();
+						}
+					});
+			});
 		});
 	}
 

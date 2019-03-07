@@ -38,24 +38,37 @@ class System {
 		trace("DB Init");
 		return Future.async((done:Bool->Void) -> {
 			trace("Open System Book");
-			Book.open('sys').handle((system:Book) -> {
-				sysBook = system;
-				trace('Got system book? $sysBook');
-				if (!tryLoadFromFile()) {
-					index = new SysIndex();
-					var library = new Library(sysBook);
-					var collectionManager = new CollectionManager(sysBook);
-					var prefacePage = new Page(1, sysBook);
-					index.library = library.index;
-					index.collectionManager = collectionManager.index;
-					prefacePage.writeFromString(haxe.Serializer.run(index));
-					trace("Persisting preface?");
-					sysBook.persistPage(prefacePage);
-					done(true);
-				} else {
-					done(true);
-				}
-			});
+			Book.open('sys')
+				.handle((system:Book) -> {
+					sysBook = system;
+					trace('Got system book? $sysBook');
+					if (!tryLoadFromFile()) {
+						index = new SysIndex();
+						var library = new Library(sysBook);
+						var collectionManager = new CollectionManager(sysBook);
+						var prefacePage = new Page(1, sysBook);
+						index.library = library.index;
+						index.collectionManager = collectionManager.index;
+						prefacePage.writeFromString(haxe.Serializer.run(index));
+						trace("Persisting preface?");
+						sysBook.persistPage(prefacePage)
+							.handle(_ -> {
+								library.addRecord(new Record(sysBook.index))
+									.handle(() -> {
+										library.persist()
+											.handle(() -> {
+												System.log('INIT: Library: $library\nRecords: ${library.getRecords(r -> true)}');
+												done(true);
+												return Noise;
+											});
+									});
+							});
+							return Noise;
+					} else {
+						done(true);
+						return Noise;
+					}
+				});
 		});
 	}
 
@@ -89,7 +102,8 @@ class System {
 						newIndex.library = library.index;
 						newIndex.collectionManager = collectionManager.index;
 						trace("Shutting down.");
-						System.log('Close Status: \n$_library\n${_library.getRecords(record -> true)}\n$_collectionManager\n${_collectionManager.getRecords(record -> true)}');
+						System
+							.log('Close Status: \n$_library\n${_library.getRecords(record -> true)}\n$_collectionManager\n${_collectionManager.getRecords(record -> true)}');
 						prefacePage.writeFromString(haxe.Serializer.run(newIndex));
 						sysBook.persistPage(prefacePage)
 							.handle(() -> {
