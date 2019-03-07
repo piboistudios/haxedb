@@ -27,6 +27,10 @@ var run =  function(iterations) {
 session.persist('run', run);
 
 ```
+Next REPL:
+```
+run(1000);
+```
 
 
 ## How to run
