@@ -73,6 +73,7 @@ class Book {
 				if (indexData.length != 0) {
 					this.index = haxe.Unserializer.run(indexData);
 					System.log('Book loaded $index');
+					this.persisted = true;
 				}
 				done(true);
 			}
@@ -84,6 +85,8 @@ class Book {
 		return Future.async((done:Bool->Void) -> {
 			var indexPage = new Page(0, this);
 			var serializer = new haxe.Serializer();
+			if (isNew && System.library != null)
+				this.index.id = System.library.count();
 			serializer.serialize(index);
 			indexPage.writeFromString(serializer.toString());
 			// System.log('index page: ${({id: indexPage.id(), content: indexPage.string(), expected: this.index})}');
@@ -102,8 +105,6 @@ class Book {
 		return Future.async((done:Bool->Void) -> {
 			System.log('System.library: ${System.library}');
 			if (System.library != null) {
-				if (isNew)
-					this.index.id = System.library.count();
 				var libRecord = System.library.getById(this.index.id);
 				var future = Future.sync(false);
 				if (!this.persisted && libRecord == null) {

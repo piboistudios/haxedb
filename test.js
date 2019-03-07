@@ -535,6 +535,7 @@ haxedb_storage_Book.prototype = {
 				if(indexData.length != 0) {
 					_gthis.index = haxe_Unserializer.run(indexData);
 					haxedb_sys_System.log("Book loaded " + Std.string(_gthis.index));
+					_gthis.persisted = true;
 				}
 				done(true);
 			}
@@ -549,6 +550,9 @@ haxedb_storage_Book.prototype = {
 		return tink_core__$Future_Future_$Impl_$.async(function(done) {
 			var indexPage = new haxedb_storage_Page(0,_gthis);
 			var serializer = new haxe_Serializer();
+			if(isNew && haxedb_sys_System.get_library() != null) {
+				_gthis.index.id = haxedb_sys_System.get_library().count();
+			}
 			serializer.serialize(_gthis.index);
 			indexPage.writeFromString(serializer.toString());
 			return _gthis.persistPage(indexPage).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
@@ -568,9 +572,6 @@ haxedb_storage_Book.prototype = {
 		return tink_core__$Future_Future_$Impl_$.async(function(done) {
 			haxedb_sys_System.log("System.library: " + Std.string(haxedb_sys_System.get_library()));
 			if(haxedb_sys_System.get_library() != null) {
-				if(isNew) {
-					_gthis.index.id = haxedb_sys_System.get_library().count();
-				}
 				var libRecord = haxedb_sys_System.get_library().getById(_gthis.index.id);
 				var future = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(false));
 				if(!_gthis.persisted && libRecord == null) {
@@ -749,7 +750,11 @@ haxedb_sys_System.tryLoadFromFile = function() {
 		haxedb_sys_System.index = haxe_Unserializer.run(prefacePage.string());
 		haxedb_sys_System._library = haxedb_sys_books_Library.load(haxedb_sys_System.index.library);
 		haxedb_sys_System._collectionManager = haxedb_sys_collections_CollectionManager.load(haxedb_sys_System.index.collectionManager);
-		haxe_Log.trace("Loaded\n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._collectionManager),{ fileName : "src/haxedb/sys/System.hx", lineNumber : 74, className : "haxedb.sys.System", methodName : "tryLoadFromFile"});
+		haxedb_sys_System.log("Loaded\n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._library.getRecords(function(record) {
+			return true;
+		})) + "\n" + Std.string(haxedb_sys_System._collectionManager) + "\n" + Std.string(haxedb_sys_System._collectionManager.getRecords(function(record1) {
+			return true;
+		})));
 		return true;
 	} else {
 		return false;
@@ -762,9 +767,16 @@ haxedb_sys_System.teardown = function() {
 		return haxedb_sys_System.get_library().persist().handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
 			newIndex.library = haxedb_sys_System.get_library().index;
 			newIndex.collectionManager = haxedb_sys_System.get_collectionManager().index;
+			haxe_Log.trace("Shutting down.",{ fileName : "src/haxedb/sys/System.hx", lineNumber : 91, className : "haxedb.sys.System", methodName : "teardown"});
+			haxedb_sys_System.log("Close Status: \n" + Std.string(haxedb_sys_System._library) + "\n" + Std.string(haxedb_sys_System._library.getRecords(function(record) {
+				return true;
+			})) + "\n" + Std.string(haxedb_sys_System._collectionManager) + "\n" + Std.string(haxedb_sys_System._collectionManager.getRecords(function(record1) {
+				return true;
+			})));
 			var cb = haxe_Serializer.run(newIndex);
 			prefacePage.writeFromString(cb);
 			return haxedb_sys_System.sysBook.persistPage(prefacePage).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+				haxedb_sys_System.log("Preface: " + Std.string(newIndex));
 				haxedb_sys_System.log("--------------------------------------END (" + HxOverrides.dateStr(new Date()) + ")------------------------------------------");
 				return;
 			}));
@@ -1122,11 +1134,10 @@ haxedb_storage_Collection.prototype = {
 				var pageNo = _g1[_g];
 				++_g;
 				var page = [_gthis.getPage(pageNo)];
-				if(page[0] != null) {
-					var retVal = [false];
-					tink_core__$Promise_Promise_$Impl_$.next(page[0].addRecords(records),(function(retVal1,page1) {
+				var result = page[0].addRecords(records);
+				if(page[0] != null && result.spaceAvailable) {
+					tink_core__$Promise_Promise_$Impl_$.next(page[0].commit(result.records),(function(page1) {
 						return function(success) {
-							retVal1[0] = success;
 							if(success) {
 								_gthis.dirtyPages.push(page1[0].id());
 								_gthis.persist();
@@ -1134,54 +1145,58 @@ haxedb_storage_Collection.prototype = {
 							}
 							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 						};
-					})(retVal,page));
-					if(retVal[0]) {
-						break;
-					}
+					})(page));
+					return tink_core_Noise.Noise;
 				}
 			}
 			try {
 				var newPage = new haxedb_storage_RecordsPage(-1,_gthis.book);
+				if(Lambda.find(_gthis.index.pages,function(page2) {
+					return page2 == newPage.id();
+				}) != null) {
+					var tmp = newPage.id() + 1;
+					newPage.setId(tmp);
+				}
 				_gthis.index.pages.push(newPage.id());
 				var this1 = _gthis.pages;
 				var key = newPage.id();
 				this1.h[key] = newPage;
 				if(_gthis.book != null) {
-					var retVal2 = false;
-					return tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(newPage.addRecords(records),function(success1) {
-						retVal2 = success1;
-						if(!success1) {
-							var bisection = records.length / 2 | 0;
-							var records1 = records.slice(0,bisection);
-							var records2 = records.slice(bisection);
-							var futures = [_gthis.addRecords(records1),_gthis.addRecords(records2)];
-							tink_core__$Future_Future_$Impl_$.ofMany(futures).handle(function(successes) {
-								done(successes[0] && successes[1]);
-								return;
-							});
-							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(true)));
-						} else {
-							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(false)));
-						}
-					}),function(proceed) {
-						if(proceed) {
-							_gthis.dirtyPages.push(newPage.id());
-							_gthis.book.persistPage(newPage).handle(function(succcess) {
-								return _gthis.persist().handle(function(success2) {
-									done(retVal2);
-									return;
+					var retVal = false;
+					var result1 = newPage.addRecords(records);
+					retVal = result1.spaceAvailable;
+					if(!result1.spaceAvailable) {
+						var bisection = records.length / 2 | 0;
+						var records1 = records.slice(0,bisection);
+						var records2 = records.slice(bisection);
+						var futures = [_gthis.addRecords(records1),_gthis.addRecords(records2)];
+						tink_core__$Future_Future_$Impl_$.ofMany(futures).handle(function(successes) {
+							done(successes[0] && successes[1]);
+							return;
+						});
+					} else {
+						tink_core__$Promise_Promise_$Impl_$.next(newPage.commit(result1.records),function(proceed) {
+							if(proceed) {
+								_gthis.dirtyPages.push(newPage.id());
+								_gthis.book.persistPage(newPage).handle(function(succcess) {
+									return _gthis.persist().handle(function(success1) {
+										done(retVal);
+										return;
+									});
 								});
-							});
-						}
-						return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
-					});
+							}
+							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
+						});
+					}
+					return tink_core_Noise.Noise;
 				} else {
-					return tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(_gthis.persist(),function(_) {
-						return newPage.addRecords(records);
-					}),function(success3) {
-						done(success3);
+					tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(_gthis.persist(),function(_) {
+						return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(newPage.addRecords(records))));
+					}),function(success2) {
+						done(success2.spaceAvailable);
 						return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 					});
+					return tink_core_Noise.Noise;
 				}
 			} catch( ex ) {
 				throw js__$Boot_HaxeError.wrap(((ex) instanceof js__$Boot_HaxeError) ? ex.val : ex);
@@ -1197,11 +1212,10 @@ haxedb_storage_Collection.prototype = {
 				var pageNo = _g1[_g];
 				++_g;
 				var page = [_gthis.getPage(pageNo)];
-				if(page[0] != null) {
-					var retVal = [false];
-					tink_core__$Promise_Promise_$Impl_$.next(page[0].addRecord(record),(function(retVal1,page1) {
+				var result = page[0].addRecord(record);
+				if(page[0] != null && result.spaceAvailable) {
+					tink_core__$Promise_Promise_$Impl_$.next(page[0].commit(result.records),(function(page1) {
 						return function(success) {
-							retVal1[0] = success;
 							if(success) {
 								_gthis.dirtyPages.push(page1[0].id());
 								_gthis.persist();
@@ -1209,10 +1223,8 @@ haxedb_storage_Collection.prototype = {
 							}
 							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 						};
-					})(retVal,page));
-					if(retVal[0]) {
-						break;
-					}
+					})(page));
+					return tink_core_Noise.Noise;
 				}
 			}
 			try {
@@ -1222,24 +1234,28 @@ haxedb_storage_Collection.prototype = {
 				var key = newPage.id();
 				this1.h[key] = newPage;
 				if(_gthis.book != null) {
-					var retVal2 = false;
-					return tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(newPage.addRecord(record),function(success1) {
-						retVal2 = success1;
+					var retVal = false;
+					var result1 = newPage.addRecord(record);
+					tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(tink_core__$Promise_Promise_$Impl_$.next(newPage.commit(result1.records),function(result2) {
+						retVal = result2;
 						var ret = _gthis.book.persistPage(newPage).map(tink_core_Outcome.Success);
 						return ret.gather();
 					}),function(_) {
 						_gthis.dirtyPages.push(newPage.id());
 						return _gthis.persist();
 					}),function(_1) {
-						cb(retVal2);
+						cb(retVal);
 						return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 					});
+					return tink_core_Noise.Noise;
 				} else {
 					_gthis.persist();
-					return tink_core__$Promise_Promise_$Impl_$.next(newPage.addRecord(record),function(success2) {
-						cb(success2);
+					var result3 = newPage.addRecord(record);
+					tink_core__$Promise_Promise_$Impl_$.next(newPage.commit(result3.records),function(success1) {
+						cb(success1);
 						return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 					});
+					return tink_core_Noise.Noise;
 				}
 			} catch( ex ) {
 				throw js__$Boot_HaxeError.wrap(((ex) instanceof js__$Boot_HaxeError) ? ex.val : ex);
@@ -1274,21 +1290,18 @@ haxedb_storage_Collection.prototype = {
 				var pageNo = _g1[_g];
 				++_g;
 				var page = [_gthis.getPage(pageNo)];
-				if(page[0] != null) {
-					var retVal = [false];
-					tink_core__$Promise_Promise_$Impl_$.next(page[0].updateRecord(predicate,value),(function(retVal1,page1) {
+				var result = page[0].updateRecord(predicate,value);
+				if(page[0] != null && result.spaceAvailable) {
+					tink_core__$Promise_Promise_$Impl_$.next(page[0].commit(result.records),(function(page1) {
 						return function(success) {
-							retVal1[0] = success;
 							if(success) {
 								_gthis.dirtyPages.push(page1[0].id());
 								cb(true);
 							}
 							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 						};
-					})(retVal,page));
-					if(retVal[0]) {
-						break;
-					}
+					})(page));
+					return;
 				}
 			}
 			cb(false);
@@ -1305,21 +1318,18 @@ haxedb_storage_Collection.prototype = {
 				var pageNo = _g1[_g];
 				++_g;
 				var page = [_gthis.getPage(pageNo)];
-				if(page[0] != null) {
-					var retVal1 = [false];
-					tink_core__$Promise_Promise_$Impl_$.next(page[0].updateRecords(predicate,value),(function(retVal2,page1) {
+				var result = page[0].updateRecords(predicate,value);
+				if(page[0] != null && result.spaceAvailable) {
+					tink_core__$Promise_Promise_$Impl_$.next(page[0].commit(result.records),(function(page1) {
 						return function(success) {
-							retVal2[0] = success;
 							if(success) {
 								_gthis.dirtyPages.push(page1[0].id());
-								retVal2[0] = true;
+								retVal = true;
 							}
 							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 						};
-					})(retVal1,page));
-					if(retVal1[0]) {
-						break;
-					}
+					})(page));
+					return;
 				}
 			}
 			cb(retVal);
@@ -1350,8 +1360,9 @@ haxedb_storage_Collection.prototype = {
 				var pageNo = _g1[_g];
 				++_g;
 				var page = [_gthis.getPage(pageNo)];
-				if(page[0] != null) {
-					tink_core__$Promise_Promise_$Impl_$.next(page[0].removeRecord(record.location.recordNo),(function(page1) {
+				var result = page[0].removeRecord(record.location.recordNo);
+				if(page[0] != null && result.spaceAvailable) {
+					tink_core__$Promise_Promise_$Impl_$.next(page[0].commit(result.records),(function(page1) {
 						return function(success) {
 							if(success) {
 								_gthis.dirtyPages.push(page1[0].id());
@@ -1360,9 +1371,11 @@ haxedb_storage_Collection.prototype = {
 							return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 						};
 					})(page));
+					return;
 				}
 			}
-			return false;
+			done(false);
+			return;
 		});
 	}
 	,__class__: haxedb_storage_Collection
@@ -4999,6 +5012,7 @@ $hxClasses["Console"] = Console;
 Console.__name__ = "Console";
 Console.main = function() {
 	Console.init();
+	Console.run();
 };
 Console.init = function() {
 	tink_core__$Future_Future_$Impl_$.next(haxedb_sys_System.init(),function(success) {
@@ -5009,7 +5023,6 @@ Console.init = function() {
 		Console.configureApi(Console.dbApi,"db");
 		Console.configureApi(Console.sessionApi,"session");
 		Console.printInstructions();
-		Console.run();
 		return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(tink_core_Noise.Noise)));
 	});
 };
@@ -5058,19 +5071,25 @@ Console.run = function() {
 				Console.scriptLines.push(input);
 				Console.run();
 			}
+			return tink_core_Noise.Noise;
 		} else {
 			var script = Console.scriptLines.join("\n");
+			var done = function(result) {
+				haxe_Log.trace(result,{ fileName : "src/Console.hx", lineNumber : 84, className : "Console", methodName : "run"});
+				Console.scriptLines = [];
+				Console.run();
+				return;
+			};
 			try {
-				haxe_Log.trace("script: " + script,{ fileName : "src/Console.hx", lineNumber : 83, className : "Console", methodName : "run"});
+				haxe_Log.trace("script: " + script,{ fileName : "src/Console.hx", lineNumber : 89, className : "Console", methodName : "run"});
 				var ast = Console.parser.parseString(script);
-				haxe_Log.trace(Console.interp.execute(ast),{ fileName : "src/Console.hx", lineNumber : 85, className : "Console", methodName : "run"});
+				var result1 = Console.interp.execute(ast);
+				done(result1);
 			} catch( error ) {
-				haxe_Log.trace("ERROR: " + Std.string(((error) instanceof js__$Boot_HaxeError) ? error.val : error),{ fileName : "src/Console.hx", lineNumber : 87, className : "Console", methodName : "run"});
+				done("ERROR: " + Std.string(((error) instanceof js__$Boot_HaxeError) ? error.val : error));
 			}
-			Console.scriptLines = [];
-			Console.run();
+			return tink_core_Noise.Noise;
 		}
-		return;
 	});
 };
 Console.getIndent = function() {
@@ -7310,6 +7329,9 @@ haxedb_storage_Page.prototype = {
 	id: function() {
 		return this.header.id;
 	}
+	,setId: function(id) {
+		this.header.id = id;
+	}
 	,size: function() {
 		return this.header.size;
 	}
@@ -7323,6 +7345,9 @@ haxedb_storage_Page.prototype = {
 	,writeFromString: function(string) {
 		var bytes = haxe_io_Bytes.ofString(string);
 		return this.writeFromBytes(bytes);
+	}
+	,canFit: function(data) {
+		return haxe_io_Bytes.ofString(data).length < this.pageSize();
 	}
 	,writeFromBytes: function(data) {
 		if(data.length < this.pageSize()) {
@@ -7404,7 +7429,7 @@ haxedb_storage_RecordsPage.prototype = $extend(haxedb_storage_Page.prototype,{
 		record.location.pageNo = this.header.id;
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 		records.push(record);
-		return this.writeFromRecords(records);
+		return { spaceAvailable : this.hasSpaceFor(records), records : records};
 	}
 	,addRecords: function(incomingRecords) {
 		var _gthis = this;
@@ -7420,31 +7445,29 @@ haxedb_storage_RecordsPage.prototype = $extend(haxedb_storage_Page.prototype,{
 			++_g;
 			addRecord(record1);
 		}
-		return this.writeFromRecords(records);
+		return { spaceAvailable : this.hasSpaceFor(records), records : records};
 	}
 	,updateRecord: function(predicate,value) {
 		var records = this.records();
 		var recordToReplace = Lambda.find(records,predicate);
+		var recordExists = false;
 		if(recordToReplace != null) {
 			recordToReplace.data = value;
-			return this.writeFromRecords(records);
-		} else {
-			var ret = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(false)).map(tink_core_Outcome.Success);
-			return ret.gather();
+			recordExists = true;
 		}
+		return { spaceAvailable : this.hasSpaceFor(records) && recordExists, records : records};
 	}
 	,updateRecords: function(predicate,value) {
 		var records = this.records();
 		var recordsToReplace = records.filter(predicate);
+		var recordChanged = false;
 		if(recordsToReplace != null && recordsToReplace.length != 0) {
 			Lambda.iter(recordsToReplace,function(record) {
 				return record.data = value;
 			});
-			return this.writeFromRecords(records);
-		} else {
-			var ret = new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(false)).map(tink_core_Outcome.Success);
-			return ret.gather();
+			recordChanged = true;
 		}
+		return { spaceAvailable : this.hasSpaceFor(records) && recordChanged, records : records};
 	}
 	,getRecord: function(predicate) {
 		var records = this.records();
@@ -7460,22 +7483,29 @@ haxedb_storage_RecordsPage.prototype = $extend(haxedb_storage_Page.prototype,{
 			return record.location.recordNo == recordNo;
 		});
 		if(recordToRemove == null) {
-			return new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(tink_core_Outcome.Success(false)));
+			return { spaceAvailable : false, records : records};
 		}
 		HxOverrides.remove(records,recordToRemove);
-		return this.writeFromRecords(records);
+		return { spaceAvailable : this.hasSpaceFor(records), records : records};
 	}
-	,writeFromRecords: function(records) {
+	,commit: function(records) {
 		var _gthis = this;
+		var successfulWrite = this.writeFromString(haxe_Serializer.run(records));
 		var ret = tink_core__$Future_Future_$Impl_$.async(function(cb) {
-			return _gthis.book.persistPage(_gthis).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
-				var f = haxe_Serializer.run(records);
-				var f1 = _gthis.writeFromString(f);
-				cb(f1);
-				return;
-			}));
+			if(successfulWrite) {
+				_gthis.book.persistPage(_gthis).handle(tink_core__$Callback_Callback_$Impl_$.fromNiladic(function() {
+					cb(successfulWrite);
+					return;
+				}));
+			} else {
+				new tink_core__$Future_SyncFuture(new tink_core__$Lazy_LazyConst(successfulWrite));
+			}
+			return tink_core_Noise.Noise;
 		}).map(tink_core_Outcome.Success);
 		return ret.gather();
+	}
+	,hasSpaceFor: function(records) {
+		return this.canFit(haxe_Serializer.run(records));
 	}
 	,__class__: haxedb_storage_RecordsPage
 });

@@ -1,9 +1,15 @@
 package haxedb.storage;
 
 using Lambda;
+
 import tink.CoreApi;
 import haxedb.storage.Page;
 import haxedb.record.Record;
+
+typedef PreprocessResult<T> = {
+	var spaceAvailable:Bool;
+	var records:Array<Record<T>>;
+}
 
 class RecordsPage<T> extends Page {
 	public function new(id = -1, book:Book = null) {
@@ -15,15 +21,18 @@ class RecordsPage<T> extends Page {
 		return str.length != 0 ? haxe.Unserializer.run(str) : [];
 	}
 
-	public function addRecord(record:Record<T>):Promise<Bool> {
+	public function addRecord(record:Record<T>):PreprocessResult<T> {
 		var records = this.records();
 		record.location.pageNo = this.header.id;
 		record.location.recordNo = records.length != 0 ? records[records.length - 1].location.recordNo + 1 : 0;
 		records.push(record);
-		return this.writeFromRecords(records);
+		return {spaceAvailable: this.hasSpaceFor(records), records: records};
 	}
 
-	public function addRecords(incomingRecords:Array<Record<T>>):Promise<Bool> {
+	// public function addRecord(record:Record<T>):Promise<Bool> {
+	// 	retuspaceAvailable: rn {this.hasSpaceFor(records)records: , records};
+	// }
+	public function addRecords(incomingRecords:Array<Record<T>>):PreprocessResult<T> {
 		var records = this.records();
 		var addRecord = (record:Record<T>) -> {
 			record.location.pageNo = this.header.id;
@@ -33,29 +42,35 @@ class RecordsPage<T> extends Page {
 		for (record in incomingRecords) {
 			addRecord(record);
 		}
-		return this.writeFromRecords(records);
+		return {spaceAvailable: this.hasSpaceFor(records), records: records};
 	}
 
-	public function updateRecord(predicate:Record<T>->Bool, value:T):Promise<Bool> {
+	public function updateRecord(predicate:Record<T>->Bool, value:T):PreprocessResult<T> {
 		var records = this.records();
 		var recordToReplace = records.find(predicate);
+		var recordExists = false;
 		if (recordToReplace != null) {
 			recordToReplace.data = value;
-			return this.writeFromRecords(records);
-		} else
-			return Future.sync(false);
+			recordExists = true;
+		}
+		return {
+			spaceAvailable:this.hasSpaceFor(records) && recordExists, records:records
+		};
 	}
 
-	public function updateRecords(predicate:Record<T>->Bool, value:T):Promise<Bool> {
+	public function updateRecords(predicate:Record<T>->Bool, value:T):PreprocessResult<T> {
 		var records = this.records();
 		var recordsToReplace = records.filter(predicate);
+		var recordChanged = false;
 		if (recordsToReplace != null && recordsToReplace.length != 0) {
 			recordsToReplace.iter(record -> {
 				record.data = value;
 			});
-			return this.writeFromRecords(records);
-		} else
-			return Future.sync(false);
+			recordChanged = true;
+		}
+		return {
+			spaceAvailable:this.hasSpaceFor(records) && recordChanged, records:records
+		};
 	}
 
 	public function getRecord(predicate:Record<T>->Bool) {
@@ -68,21 +83,30 @@ class RecordsPage<T> extends Page {
 		return records.filter(predicate);
 	}
 
-	public function removeRecord(recordNo:Int):Promise<Bool> {
+	public function removeRecord(recordNo:Int):PreprocessResult<T> {
 		var records = this.records();
 		var recordToRemove = records.find(record -> record.location.recordNo == recordNo);
 		if (recordToRemove == null)
-			return false;
+			return {spaceAvailable: false, records: records};
 		records.remove(recordToRemove);
-		return this.writeFromRecords(records);
+		return {spaceAvailable: this.hasSpaceFor(records), records: records};
 	}
 
-	function writeFromRecords(records:Array<Record<T>>):Promise<Bool> {
+	public function commit(records:Array<Record<T>>):Promise<Bool> {
+		var successfulWrite = this.writeFromString(haxe.Serializer.run(records));
 		return Future.async((cb:Bool->Void) -> {
-			this.book.persistPage(this).handle(() -> {
-				cb(this.writeFromString(haxe.Serializer.run(records)));
-			});
+			if (successfulWrite)
+				this.book.persistPage(this).handle(() -> {
+					cb(successfulWrite);
+				});
+			else
+				Future.sync(successfulWrite);
+			return Noise;
 		});
+	}
+
+	function hasSpaceFor(records:Array<Record<T>>):Bool {
+		return canFit(haxe.Serializer.run(records));
 	}
 
 	public static function fromPage<T>(page:Page):RecordsPage<T> {

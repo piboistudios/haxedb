@@ -24,6 +24,10 @@ class Page {
 		return this.header.id;
 	}
 
+	public function setId(id:Int) {
+		this.header.id = id;
+	}
+
 	public function size() {
 		return this.header.size;
 	}
@@ -40,6 +44,10 @@ class Page {
 	public function writeFromString(string:String):Bool {
 		var bytes = Bytes.ofString(string);
 		return this.writeFromBytes(bytes);
+	}
+
+	public function canFit(data:String) {
+		return Bytes.ofString(data).length < pageSize();
 	}
 
 	public function writeFromBytes(data:Bytes):Bool {

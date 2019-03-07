@@ -6,6 +6,7 @@ import tink.CoreApi;
 import haxedb.sys.System;
 import haxedb.record.collections.CollectionRecord;
 import haxedb.record.Record;
+import haxedb.storage.RecordsPage;
 
 class Collection<T> {
 	public var index(default, null):CollectionRecord;
@@ -110,67 +111,67 @@ class Collection<T> {
 		return Future.async((done:Bool->Void) -> {
 			for (pageNo in this.index.pages) {
 				var page = this.getPage(pageNo);
-				if (page != null) {
-					var retVal = false;
-					page.addRecords(records)
-					.next((success:Bool) -> {
-						retVal = success;
+				var result = page.addRecords(records);
+				if (page != null && result.spaceAvailable) {
+					page.commit(result.records).next((success:Bool) -> {
 						if (success) {
 							this.dirtyPages.push(page.id());
 							this.persist();
 							done(true);
 						}
 						return Noise;
-						
 					});
-					if (retVal)
-						break;
+					return Noise;
 				}
 			}
 			try {
 				var newPage = new RecordsPage<T>(-1, this.book);
-
+				if (this.index.pages.find(page -> page == newPage.id()) != null) {
+					newPage.setId(newPage.id() + 1);
+				}
 				this.index.pages.push(newPage.id());
 				this.pages.set(newPage.id(), newPage);
-
 				if (this.book != null) {
 					var retVal = false;
-					newPage.addRecords(records)
-						.next((success:Bool) -> {
-							retVal = success;
-							if (!success) {
-								var bisection = Std.int(records.length / 2);
-								var records1 = records.slice(0, bisection);
-								var records2 = records.slice(bisection);
-								var futures = [this.addRecords(records1), this.addRecords(records2)];
-								Future.ofMany(futures)
-									.handle(successes -> {
-										done(successes[0] && successes[1]);
-									});
-								return true;
-							} else
-								return false;
-						})
-						.next((proceed:Bool) -> {
-							if (proceed) {
-								this.dirtyPages.push(newPage.id());
-								this.book.persistPage(newPage)
-									.handle(succcess -> {
-										this.persist()
-											.handle(success -> {
-												done(retVal);
-											});
-									});
-							}
-							return Noise;
+					var result = newPage.addRecords(records);
+					// System.log("Adding records to new page 3960");
+
+					// System.log("Beginning new page");
+					retVal = result.spaceAvailable;
+					if (!result.spaceAvailable) {
+						// System.log("Bisecting");
+						var bisection = Std.int(records.length / 2);
+						var records1 = records.slice(0, bisection);
+						var records2 = records.slice(bisection);
+						var futures = [this.addRecords(records1), this.addRecords(records2)];
+						Future.ofMany(futures).handle(successes -> {
+							done(successes[0] && successes[1]);
 						});
+					} else {
+						newPage.commit(result.records)
+							.next((proceed:Bool) -> {
+								if (proceed) {
+									this.dirtyPages.push(newPage.id());
+									this.book.persistPage(newPage)
+										.handle(succcess -> {
+											this.persist()
+												.handle(success -> {
+													done(retVal);
+												});
+										});
+								}
+								return Noise;
+							});
+					}
+					return Noise;
 				} else {
 					this.persist().next(_ -> {
 						return newPage.addRecords(records);
-					}).next((success:Bool) -> {
-						done(success);
+					}).next((success:PreprocessResult<T>) -> {
+						done(success.spaceAvailable);
 						return Noise;
 					});
+					return Noise;
 				}
 			} catch (ex:Dynamic) {
 				throw ex;
@@ -182,10 +183,9 @@ class Collection<T> {
 		return Future.async((cb:Bool->Void) -> {
 			for (pageNo in this.index.pages) {
 				var page = this.getPage(pageNo);
-				if (page != null) {
-					var retVal = false;
-					page.addRecord(record).next(success -> {
-						retVal = success;
+				var result = page.addRecord(record);
+				if (page != null && result.spaceAvailable) {
+					page.commit(result.records).next(success -> {
 						if (success) {
 							this.dirtyPages.push(page.id());
 							this.persist();
@@ -193,8 +193,7 @@ class Collection<T> {
 						}
 						return Noise;
 					});
-					if (retVal)
-						break;
+					return Noise;
 				}
 			}
 
@@ -206,9 +205,10 @@ class Collection<T> {
 
 				if (this.book != null) {
 					var retVal = false;
-					newPage.addRecord(record)
-						.next(success -> {
-							retVal = success;
+					var result = newPage.addRecord(record);
+					newPage.commit(result.records)
+						.next(result -> {
+							retVal = result;
 							return this.book.persistPage(newPage);
 						})
 						.next(_ -> {
@@ -219,12 +219,15 @@ class Collection<T> {
 							cb(retVal);
 							return Noise;
 						});
+					return Noise;
 				} else {
 					this.persist();
-					newPage.addRecord(record).next((success:Bool) -> {
+					var result = newPage.addRecord(record);
+					newPage.commit(result.records).next((success:Bool) -> {
 						cb(success);
 						return Noise;
 					});
+					return Noise;
 				}
 			} catch (ex:Dynamic) {
 				throw ex;
@@ -250,18 +253,16 @@ class Collection<T> {
 		return Future.async((cb:Bool->Void) -> {
 			for (pageNo in this.index.pages) {
 				var page = this.getPage(pageNo);
-				if (page != null) {
-					var retVal = false;
-					page.updateRecord(predicate, value).next((success:Bool) -> {
-						retVal = success;
+				var result = page.updateRecord(predicate, value);
+				if (page != null && result.spaceAvailable) {
+					page.commit(result.records).next((success:Bool) -> {
 						if (success) {
 							this.dirtyPages.push(page.id());
 							cb(true);
 						}
 						return Noise;
 					});
-					if (retVal)
-						break;
+					return;
 				}
 			}
 			cb(false);
@@ -273,18 +274,17 @@ class Collection<T> {
 		return Future.async((cb:Bool->Void) -> {
 			for (pageNo in this.index.pages) {
 				var page = this.getPage(pageNo);
-				if (page != null) {
-					var retVal = false;
-					page.updateRecords(predicate, value).next((success:Bool) -> {
-						retVal = success;
+				var result = page.updateRecords(predicate, value);
+				if (page != null && result.spaceAvailable) {
+					page.commit(result.records).next((success:Bool) -> {
 						if (success) {
 							this.dirtyPages.push(page.id());
 							retVal = true;
 						}
 						return Noise;
 					});
-					if (retVal)
-						break;
+
+					return;
 				}
 			}
 			cb(retVal);
@@ -306,17 +306,19 @@ class Collection<T> {
 		return Future.async((done:Bool->Void) -> {
 			for (pageNo in this.index.pages) {
 				var page = this.getPage(pageNo);
-				if (page != null) {
-					page.removeRecord(record.location.recordNo).next((success:Bool) -> {
+				var result = page.removeRecord(record.location.recordNo);
+				if (page != null && result.spaceAvailable) {
+					page.commit(result.records).next((success:Bool) -> {
 						if (success) {
 							this.dirtyPages.push(page.id());
 							done(true);
 						}
 						return Noise;
 					});
+					return;
 				}
 			}
-			return false;
+			done(false);
 		});
 	}
 

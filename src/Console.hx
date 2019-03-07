@@ -14,7 +14,7 @@ import tink.CoreApi;
 class Console {
 	public static function main() {
 		init();
-		
+		run();
 	}
 
 	static function init() {
@@ -26,7 +26,7 @@ class Console {
 			configureApi(dbApi, 'db');
 			configureApi(sessionApi, 'session');
 			printInstructions();
-			run();
+
 			return Noise;
 		});
 	}
@@ -77,17 +77,25 @@ class Console {
 					scriptLines.push(input);
 					run();
 				}
+				return Noise;
 			} else {
 				var script = scriptLines.join('\n');
+				var done = result -> {
+					trace(result);
+					scriptLines = [];
+					run();
+				};
 				try {
 					trace('script: $script');
 					var ast = parser.parseString(script);
-					trace(interp.execute(ast));
+
+					var result = interp.execute(ast);
+					done(result);
+					// var flatVal = Future.flatten(asyncVal);
 				} catch (error:Dynamic) {
-					trace('ERROR: $error');
+					done('ERROR: $error');
 				}
-				scriptLines = [];
-				run();
+				return Noise;
 			}
 		});
 	}

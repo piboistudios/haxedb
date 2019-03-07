@@ -71,7 +71,7 @@ class System {
 			index = haxe.Unserializer.run(prefacePage.string());
 			_library = Library.load(index.library);
 			_collectionManager = CollectionManager.load(index.collectionManager);
-			trace('Loaded\n$_library\n$_collectionManager');
+			System.log('Loaded\n$_library\n${_library.getRecords(record -> true)}\n$_collectionManager\n${_collectionManager.getRecords(record -> true)}');
 			return true;
 		} else {
 			return false;
@@ -81,15 +81,19 @@ class System {
 	static public function teardown() {
 		var prefacePage = new Page(1, sysBook);
 		var newIndex = new SysIndex();
+
 		collectionManager.persist()
 			.handle(() -> {
 				library.persist()
 					.handle(() -> {
 						newIndex.library = library.index;
 						newIndex.collectionManager = collectionManager.index;
+						trace("Shutting down.");
+						System.log('Close Status: \n$_library\n${_library.getRecords(record -> true)}\n$_collectionManager\n${_collectionManager.getRecords(record -> true)}');
 						prefacePage.writeFromString(haxe.Serializer.run(newIndex));
 						sysBook.persistPage(prefacePage)
 							.handle(() -> {
+								System.log('Preface: ${newIndex}');
 								log('--------------------------------------END (${Date.now().toString()})------------------------------------------');
 							});
 					});
